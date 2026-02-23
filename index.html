@@ -1,1026 +1,852 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EDD · Energy Decision Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0d0f12;
-    --surface: #151820;
-    --surface2: #1e2230;
-    --border: #2a2f3f;
-    --text: #e2e8f0;
-    --text-dim: #6b7280;
-    --text-muted: #3f4658;
-    --accent-solar: #f0a500;
-    --accent-price: #3b9eff;
-    --green-hi: #22c55e;
-    --green-lo: #166534;
-    --red-hi: #ef4444;
-    --red-lo: #7f1d1d;
-    --mono: 'Space Mono', monospace;
-    --sans: 'DM Sans', sans-serif;
-  }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>EDD — Energy Decision Dashboard</title>
+  <style>
+    :root{
+      --bg: #0b1220;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --muted2: rgba(255,255,255,.52);
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+      --good: #4CAF6A;
+      --mid:  #E2B84B;
+      --bad:  #E25555;
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    padding: 0 0 48px;
-  }
+      --shadow: 0 10px 40px rgba(0,0,0,.35);
+      --radius: 18px;
+      --radius2: 22px;
+      --pad: 14px;
+      --pad2: 18px;
 
-  /* ── Header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .logo {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-  .logo-main {
-    font-family: var(--mono);
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: 0.12em;
-  }
-  .logo-sub {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    letter-spacing: 0.05em;
-  }
-  .header-status {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  .status-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--green-hi);
-    box-shadow: 0 0 6px var(--green-hi);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-  .last-update {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--text-dim);
-  }
-
-  /* ── Action Banner (today's recommendation) ── */
-  .action-banner {
-    margin: 20px 24px;
-    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .action-icon {
-    font-size: 1.8rem;
-    flex-shrink: 0;
-  }
-  .action-content { flex: 1; min-width: 200px; }
-  .action-title {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-family: var(--mono);
-    margin-bottom: 4px;
-  }
-  .action-text {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.4;
-  }
-  .action-chips {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-  }
-  .chip {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    padding: 3px 8px;
-    border-radius: 20px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-  }
-  .chip.solar { border-color: var(--accent-solar); color: var(--accent-solar); }
-  .chip.price { border-color: var(--accent-price); color: var(--accent-price); }
-  .chip.good { border-color: var(--green-hi); color: var(--green-hi); }
-  .chip.bad { border-color: var(--red-hi); color: var(--red-hi); }
-
-  /* ── Section headers ── */
-  .section-header {
-    padding: 8px 24px 12px;
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .section-header::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  /* ── Week grid ── */
-  .week-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-    padding: 0 24px;
-  }
-  @media (max-width: 900px) {
-    .week-grid {
-      grid-template-columns: 1fr 1fr;
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
     }
-  }
-  @media (max-width: 500px) {
-    .week-grid {
-      grid-template-columns: 1fr;
+
+    *{ box-sizing: border-box; }
+    html,body{ height: 100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(1000px 600px at 20% -10%, rgba(76,175,106,.22), transparent 55%),
+        radial-gradient(900px 520px at 110% 10%, rgba(226,184,75,.18), transparent 60%),
+        radial-gradient(900px 520px at 30% 120%, rgba(226,85,85,.14), transparent 60%),
+        linear-gradient(180deg, #070c16, var(--bg));
+      color: var(--text);
     }
-  }
 
-  .day-tile {
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.15s;
-    cursor: default;
-  }
-  .day-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  }
-  .day-tile.today, .day-tile.tomorrow {
-    grid-column: span 1;
-  }
-  /* Today and tomorrow get extended detail in a separate row */
+    .app{
+      max-width: 520px;
+      margin: 0 auto;
+      padding: calc(10px + var(--safeTop)) 14px calc(14px + var(--safeBottom));
+    }
 
-  .tile-header {
-    padding: 10px 12px 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-  .tile-weekday {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.5);
-  }
-  .tile-date {
-    font-family: var(--mono);
-    font-size: 1rem;
-    font-weight: 700;
-    color: #fff;
-    margin-top: 2px;
-    line-height: 1;
-  }
-  .tile-badge {
-    font-family: var(--mono);
-    font-size: 0.55rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.8);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
+    .topbar{
+      position: sticky; top: 0; z-index: 5;
+      padding: 10px 0 12px;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(11,18,32,.92), rgba(11,18,32,.65) 75%, transparent);
+    }
+    .topbar-inner{
+      display:flex; align-items:center; justify-content:space-between; gap: 12px;
+    }
+    .title-wrap{ min-width: 0; }
+    .title{ font-size: 18px; font-weight: 760; letter-spacing: .2px; margin:0; line-height: 1.2; }
+    .subtitle{ margin: 3px 0 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icon-btn{
+      width: 40px; height: 40px; border-radius: 14px;
+      border: 1px solid var(--border); background: rgba(255,255,255,.06);
+      display:grid; place-items:center; cursor:pointer;
+      transition: transform .15s ease, background .15s ease; flex: 0 0 auto;
+    }
+    .icon-btn:active{ transform: scale(.98); }
+    .icon{ width: 18px; height: 18px; opacity:.9; }
+    .grab{ width: 44px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.18); margin: 10px auto 0; }
 
-  .tile-solar-bar {
-    margin: 0 12px 8px;
-  }
-  .solar-bar-track {
-    height: 4px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .solar-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.7);
-    transition: width 0.8s ease;
-  }
+    .stack{ display:flex; flex-direction:column; gap: 12px; padding-bottom: 20px; }
 
-  .tile-kwh {
-    padding: 0 12px 10px;
-    display: flex;
-    align-items: baseline;
-    gap: 3px;
-  }
-  .kwh-value {
-    font-family: var(--mono);
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .kwh-unit {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: rgba(255,255,255,0.6);
-  }
+    .card{
+      position: relative; border-radius: var(--radius2);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.045));
+      box-shadow: 0 12px 36px rgba(0,0,0,.22); overflow:hidden;
+    }
+    .card::before{
+      content:""; position:absolute; left:0; top:0; bottom:0;
+      width: 8px; background: var(--bar, var(--mid)); opacity: .95;
+    }
+    .card.primary{ padding: var(--pad2); border-radius: 24px; }
+    .card.primary::before{ width: 10px; }
+    .card.compact{ padding: var(--pad); }
+    .card.tap{ cursor:pointer; user-select:none; -webkit-tap-highlight-color: transparent; }
+    .card.tap:active{ transform: translateY(1px); filter: brightness(1.02); }
 
-  .tile-condition {
-    padding: 0 12px 12px;
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.65);
-  }
+    .row{ display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
+    .left, .right{ min-width: 0; }
+    .badge-dot{
+      width: 10px; height: 10px; border-radius: 999px; margin-top: 3px;
+      background: var(--dot, var(--mid));
+      box-shadow: 0 0 0 6px rgba(255,255,255,.06); flex: 0 0 auto;
+    }
+    .h{ display:flex; align-items:center; gap: 10px; min-width:0; }
 
-  /* ── Detail panels (today + tomorrow) ── */
-  .detail-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 0 24px;
-    margin-top: 8px;
-  }
-  @media (max-width: 700px) {
-    .detail-row { grid-template-columns: 1fr; }
-  }
+    .card-title{ margin:0; font-size: 16px; font-weight: 740; letter-spacing: .2px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-sub{ margin: 3px 0 0; font-size: 12px; color: var(--muted); }
 
-  .detail-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-  }
-  .detail-panel-title {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .detail-panel-title span {
-    font-size: 0.85rem;
-  }
+    .grid2{ margin-top: 14px; display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  /* ── Hourly chart ── */
-  .hourly-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 60px;
-    margin-bottom: 8px;
-  }
-  .h-bar-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    height: 100%;
-    position: relative;
-  }
-  .h-bar {
-    width: 100%;
-    border-radius: 2px 2px 0 0;
-    transition: opacity 0.2s;
-    min-height: 2px;
-    position: absolute;
-    bottom: 0;
-  }
-  .h-bar-wrap.best-window .h-bar {
-    outline: 1px solid rgba(255,255,255,0.5);
-    outline-offset: 1px;
-  }
-  .h-bar-wrap.best-window::after {
-    content: '★';
-    position: absolute;
-    top: -14px;
-    font-size: 0.6rem;
-    color: var(--green-hi);
-  }
-  .h-label {
-    position: absolute;
-    bottom: -16px;
-    font-family: var(--mono);
-    font-size: 0.5rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-  .chart-labels {
-    height: 16px;
-    position: relative;
-    margin-bottom: 4px;
-  }
+    .kpi{
+      border-radius: 16px; border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04); padding: 12px 12px 11px;
+    }
+    .kpi-label{ display:flex; align-items:center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .kpi-value{ margin-top: 6px; font-size: 22px; font-weight: 780; letter-spacing: .2px; line-height: 1.1; }
+    .kpi-note{ margin-top: 4px; font-size: 12px; color: var(--muted2); }
 
-  .chart-legend {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.65rem;
-    color: var(--text-dim);
-  }
-  .legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 1px;
-  }
+    .footer{ margin-top: 14px; display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap; }
 
-  /* Best buy window highlight */
-  .best-buy-info {
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: rgba(34, 197, 94, 0.08);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    border-radius: 8px;
-  }
-  .best-buy-label {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--green-hi);
-    margin-bottom: 3px;
-  }
-  .best-buy-time {
-    font-family: var(--mono);
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .best-buy-price {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    margin-top: 2px;
-  }
+    .chip{
+      display:inline-flex; align-items:center; gap: 8px; padding: 8px 10px;
+      border-radius: 999px; font-size: 12px; font-weight: 740; letter-spacing: .15px;
+      background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.12);
+    }
+    .chip.good{ background: color-mix(in srgb, var(--good) 30%, rgba(255,255,255,.08)); border-color: color-mix(in srgb, var(--good) 45%, rgba(255,255,255,.12)); }
+    .chip.mid { background: color-mix(in srgb, var(--mid)  30%, rgba(255,255,255,.08)); border-color: color-mix(in srgb, var(--mid)  45%, rgba(255,255,255,.12)); }
+    .chip.bad { background: color-mix(in srgb, var(--bad)  28%, rgba(255,255,255,.08)); border-color: color-mix(in srgb, var(--bad)  45%, rgba(255,255,255,.12)); }
 
-  /* ── Loading / Error ── */
-  .loading-overlay {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 24px;
-    gap: 16px;
-  }
-  .spinner {
-    width: 32px; height: 32px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent-solar);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-align: center;
-  }
+    .meta{ font-size: 12px; color: var(--muted); white-space: nowrap; }
 
-  .error-box {
-    margin: 8px 0;
-    padding: 8px 10px;
-    background: rgba(239,68,68,0.08);
-    border: 1px solid rgba(239,68,68,0.2);
-    border-radius: 6px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: #ef4444;
-  }
-  .info-box {
-    padding: 8px 10px;
-    background: rgba(59,158,255,0.08);
-    border: 1px solid rgba(59,158,255,0.2);
-    border-radius: 6px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--accent-price);
-    margin: 4px 0;
-  }
+    .compact-line{ margin-top: 10px; display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+    .compact-kwh{ font-size: 14px; font-weight: 760; }
+    .compact-time{ font-size: 13px; color: var(--muted); white-space: nowrap; }
 
-  /* ── Price scale indicator ── */
-  .price-scale {
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--mono);
-    font-size: 0.55rem;
-    color: var(--text-muted);
-    margin-top: 20px;
-  }
+    /* Bottom sheet */
+    .overlay{
+      position: fixed; inset: 0; z-index: 20; display:none;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+      padding: 18px 14px calc(16px + var(--safeBottom));
+      align-items:flex-end; justify-content:center;
+    }
+    .overlay.show{ display:flex; }
+    .sheet{
+      width: 100%; max-width: 520px; border-radius: 26px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, rgba(15,22,40,.96), rgba(11,18,32,.92));
+      box-shadow: var(--shadow); overflow:hidden;
+    }
+    .sheet-head{
+      padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.10);
+      display:flex; align-items:flex-start; justify-content:space-between; gap: 12px;
+    }
+    .sheet-title{ margin: 2px 0 0; font-size: 16px; font-weight: 780; line-height: 1.2; }
+    .sheet-sub{ margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+    .close{
+      width: 40px; height: 40px; border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); cursor:pointer;
+    }
+    .close:active{ transform: scale(.98); }
+    .sheet-body{ padding: 12px 16px 16px; }
 
-  /* ── No prices fallback ── */
-  .no-prices-note {
-    padding: 16px;
-    border-radius: 8px;
-    background: var(--surface2);
-    border: 1px dashed var(--border);
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    line-height: 1.6;
-  }
-  .no-prices-note code {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    background: var(--bg);
-    padding: 1px 5px;
-    border-radius: 3px;
-    color: var(--accent-price);
-  }
-  .config-url {
-    margin-top: 10px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--text-muted);
-  }
-  .config-url input {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 5px 8px;
-    border-radius: 4px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    width: 100%;
-    margin-top: 4px;
-  }
-  .config-url button {
-    margin-top: 6px;
-    background: var(--accent-price);
-    color: #000;
-    border: none;
-    border-radius: 4px;
-    padding: 5px 12px;
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    cursor: pointer;
-    font-weight: 700;
-  }
+    .hour-grid{
+      display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px;
+    }
+    @media (max-width: 360px){ .hour-grid{ grid-template-columns: repeat(3, 1fr); } }
 
-  /* ── Dual axis mini chart ── */
-  .dual-chart {
-    position: relative;
-    height: 80px;
-    display: flex;
-    align-items: flex-end;
-    gap: 1px;
-    margin-bottom: 20px;
-  }
-  .dc-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-    height: 100%;
-    position: relative;
-  }
-  .dc-solar {
-    width: 100%;
-    background: rgba(240, 165, 0, 0.45);
-    border-radius: 1px 1px 0 0;
-    position: absolute;
-    bottom: 0;
-    transition: height 0.6s ease;
-  }
-  .dc-price {
-    width: 60%;
-    position: absolute;
-    bottom: 0;
-    border-radius: 1px 1px 0 0;
-    transition: height 0.6s ease;
-    z-index: 2;
-  }
-  .dc-col.best-hour .dc-price {
-    outline: 1px solid var(--green-hi);
-  }
-  .dc-hour-label {
-    position: absolute;
-    bottom: -16px;
-    font-family: var(--mono);
-    font-size: 0.5rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-    transform: translateX(-50%);
-    left: 50%;
-  }
-</style>
+    .hour{
+      border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05); padding: 10px 10px 9px;
+      text-align:left; cursor:pointer; user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .12s ease, filter .12s ease;
+    }
+    .hour:active{ transform: translateY(1px); }
+    .hour .t{ font-size: 12px; color: var(--muted); letter-spacing: .2px; }
+    .hour .p{ margin-top: 5px; font-size: 14px; font-weight: 800; }
+    .hour .hint{ margin-top: 4px; font-size: 11px; color: var(--muted2); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
+    .hour.good{ border-color: color-mix(in srgb, var(--good) 38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--good) 18%, rgba(255,255,255,.05)); }
+    .hour.mid { border-color: color-mix(in srgb, var(--mid)  38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--mid)  18%, rgba(255,255,255,.05)); }
+    .hour.bad { border-color: color-mix(in srgb, var(--bad)  38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--bad)  16%, rgba(255,255,255,.05)); }
+    .hour.best{ outline: 2px solid rgba(255,255,255,.85); outline-offset: 0px; box-shadow: 0 10px 22px rgba(0,0,0,.28); }
+
+    .legend{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px; flex-wrap: wrap; margin-top: 12px;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap: 8px; padding: 8px 10px;
+      border-radius: 999px; border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05); font-size: 12px; color: var(--muted);
+    }
+    .sw{ width: 10px; height: 10px; border-radius: 999px; background: var(--mid); }
+
+    .muted{ color: var(--muted); }
+    .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    /* Loading & error states */
+    .loader{
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding: 60px 20px; gap: 16px;
+    }
+    .spinner{
+      width: 32px; height: 32px; border: 2px solid rgba(255,255,255,.15);
+      border-top-color: var(--good); border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+    .loader-text{ font-size: 13px; color: var(--muted); text-align:center; line-height: 1.6; }
+
+    .source-note{
+      font-size: 11px; color: var(--muted2); margin-top: 6px;
+      display:flex; align-items:center; gap: 5px;
+    }
+    .source-dot{ width: 5px; height: 5px; border-radius: 50%; background: var(--good); flex-shrink:0; }
+    .source-dot.warn{ background: var(--mid); }
+    .source-dot.err{ background: var(--bad); }
+
+    .config-area{
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px; padding: 14px; margin-top: 10px;
+    }
+    .config-area label{ font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
+    .config-area input{
+      width: 100%; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.14);
+      color: var(--text); border-radius: 10px; padding: 9px 12px; font-size: 12px; font-family: monospace;
+    }
+    .config-area button{
+      margin-top: 8px; padding: 9px 18px; border-radius: 10px; border: none;
+      background: var(--good); color: #000; font-size: 12px; font-weight: 740; cursor:pointer;
+    }
+  </style>
 </head>
+
 <body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="title-wrap">
+        <h1 class="title">Energie-overzicht</h1>
+        <p class="subtitle" id="subtitle">Laden…</p>
+      </div>
+      <button class="icon-btn" id="btnSettings" aria-label="Instellingen">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.4 15a8.3 8.3 0 0 0 .1-1l2-1.2-2-3.5-2.3.6a7.7 7.7 0 0 0-.8-.6l-.3-2.3H9.9l-.3 2.3c-.3.2-.6.4-.8.6l-2.3-.6-2 3.5 2 1.2c0 .3 0 .7.1 1a8.3 8.3 0 0 0-.1 1l-2 1.2 2 3.5 2.3-.6c.2.2.5.4.8.6l.3 2.3h4.2l.3-2.3c.3-.2.6-.4.8-.6l2.3.6 2-3.5-2-1.2Z"
+                stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="grab" aria-hidden="true"></div>
+  </header>
 
-<header>
-  <div class="logo">
-    <span class="logo-main">⚡ EDD</span>
-    <span class="logo-sub">Energy Decision Dashboard</span>
-  </div>
-  <div class="header-status">
-    <div class="status-dot" id="statusDot"></div>
-    <span class="last-update" id="lastUpdate">Laden...</span>
-  </div>
-</header>
+  <main class="stack" id="cards">
+    <div class="loader">
+      <div class="spinner"></div>
+      <div class="loader-text">Solar forecast ophalen…<br>Elektriciteitsprijzen laden…</div>
+    </div>
+  </main>
+</div>
 
-<div id="app">
-  <div class="loading-overlay">
-    <div class="spinner"></div>
-    <div class="loading-text">Solar forecast ophalen...<br>Elektriciteitsprijzen ophalen...</div>
+<!-- Bottom sheet -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-title" id="sheetTitle">Details</div>
+        <div class="sheet-sub" id="sheetSub">—</div>
+      </div>
+      <button class="close" id="btnClose" aria-label="Sluiten">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <div class="legend">
+        <span class="pill"><span class="sw" style="background: var(--good)"></span> Goedkoop</span>
+        <span class="pill"><span class="sw" style="background: var(--mid)"></span> Gemiddeld</span>
+        <span class="pill"><span class="sw" style="background: var(--bad)"></span> Duur</span>
+        <span class="pill" id="bestPill">🕒 Beste moment: —</span>
+      </div>
+      <div class="hour-grid" id="hourGrid"></div>
+      <p id="priceSource" style="margin:12px 0 0; font-size:11px; color: var(--muted2);"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Config sheet -->
+<div class="overlay" id="configOverlay" role="dialog">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-title">Instellingen</div>
+        <div class="sheet-sub">Prijsdata configuratie</div>
+      </div>
+      <button class="close" id="btnCloseConfig" aria-label="Sluiten">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <div class="config-area">
+        <label>URL van jouw machinery JSON (leeg = automatisch Elia day-ahead)</label>
+        <input type="url" id="cfgUrl" placeholder="https://dsoubry.github.io/machinery/prices.json">
+        <button onclick="saveConfig()">Opslaan &amp; herladen</button>
+      </div>
+      <p style="margin-top:14px;font-size:12px;color:var(--muted2);line-height:1.6;">
+        Verwacht formaat van jouw JSON:<br>
+        <code style="font-size:11px;color:var(--muted);">[{"datetime":"2025-02-23T14:00:00","price":0.0834}, …]</code><br>
+        <code style="font-size:11px;color:var(--muted);">[{"timestamp":"…","market_price":0.0834,"total_price":0.21}, …]</code><br><br>
+        Als geen URL ingesteld → automatisch Elia Open Data (day-ahead BELPEX prijzen).
+      </p>
+    </div>
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 // CONFIGURATIE
-// ═══════════════════════════════════════════════════════════════
-const CONFIG = {
-  // Open-Meteo solar forecast (gratis, geen API key nodig)
-  lat: 51.2093,
+// ════════════════════════════════════════════════════════════
+const CFG = {
+  lat: 51.2093,           // Brugge
   lng: 3.2247,
-  timezone: 'Europe/Brussels',
-  
-  // Uw PV systeem
-  panelKwp: 9.44,
-  performanceRatio: 0.78, // incl. inverter, kabel, etc.
-  tiltFactor: 1.12,       // correctie hellingshoek vs horizontaal
-
-  // Luminus prijzen JSON URL (van uw machinery repo)
-  // Pas aan naar de juiste bestandsnaam in uw GitHub Pages
-  pricesUrl: 'https://dsoubry.github.io/machinery/prices.json',
-  
-  // Fallback: ook de ENTSO-E/Elia day-ahead prijzen proberen
-  entsoeFallback: true,
+  tz: 'Europe/Brussels',
+  kwp: 9.44,              // Uw PV vermogen
+  pr: 0.78,               // Performance Ratio (inverter + kabel + temp)
+  tilt: 1.12,             // Correctiefactor hellingshoek
+  // Luminus all-in toeslag boven marktprijs (€/kWh) — stel in op basis van uw contract
+  luminusToeslag: 0.065,
 };
 
-// ═══════════════════════════════════════════════════════════════
+// Haal eventueel opgeslagen machinery URL op
+function getMachineryUrl() {
+  try { return localStorage.getItem('machinery_url') || ''; } catch(e) { return ''; }
+}
+function saveMachineryUrl(url) {
+  try { localStorage.setItem('machinery_url', url); } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════════
 // DATA OPHALEN
-// ═══════════════════════════════════════════════════════════════
-async function fetchSolarForecast() {
-  const url = `https://api.open-meteo.com/v1/forecast?` +
-    `latitude=${CONFIG.lat}&longitude=${CONFIG.lng}` +
-    `&hourly=shortwave_radiation,cloudcover,precipitation_probability` +
-    `&daily=sunrise,sunset,weathercode` +
-    `&forecast_days=7` +
-    `&timezone=${encodeURIComponent(CONFIG.timezone)}`;
+// ════════════════════════════════════════════════════════════
+
+async function fetchSolar() {
+  const url = `https://api.open-meteo.com/v1/forecast?`
+    + `latitude=${CFG.lat}&longitude=${CFG.lng}`
+    + `&hourly=shortwave_radiation,cloudcover,direct_radiation`
+    + `&daily=sunrise,sunset,weathercode,precipitation_sum`
+    + `&forecast_days=7`
+    + `&timezone=${encodeURIComponent(CFG.tz)}`;
   const r = await fetch(url);
-  if (!r.ok) throw new Error('Open-Meteo API fout');
+  if (!r.ok) throw new Error(`Open-Meteo fout: ${r.status}`);
   return r.json();
 }
 
-async function fetchPrices() {
-  // Probeer meerdere mogelijke bestandsnamen in machinery repo
-  const candidates = [
-    CONFIG.pricesUrl,
-    'https://dsoubry.github.io/machinery/luminus_prices.json',
-    'https://dsoubry.github.io/machinery/data.json',
-    'https://dsoubry.github.io/machinery/electricity_prices.json',
-  ];
-  
-  for (const url of candidates) {
+// Probeer machinery-repo JSON (jouw gepubliceerde prijzen)
+async function fetchMachineryPrices(url) {
+  if (!url) return null;
+  try {
+    const r = await fetch(url, { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const parsed = parsePriceData(data);
+    if (parsed.length) return { prices: parsed, source: url, sourceLabel: 'Luminus Dynamic (machinery)' };
+  } catch(e) {}
+  return null;
+}
+
+// Elia Open Data — day-ahead BELPEX prijzen (€/MWh → /1000 = €/kWh)
+// Dataset: ods031 = day-ahead prices Belgium
+async function fetchEliaPrices() {
+  const today = new Date();
+  const from = new Date(today);
+  from.setHours(0,0,0,0);
+  const to = new Date(today);
+  to.setDate(to.getDate() + 2);
+  to.setHours(23,0,0,0);
+
+  // Elia open data dataset voor day-ahead tarieven
+  const url = `https://opendata.elia.be/api/explore/v2.1/catalog/datasets/ods031/records`
+    + `?limit=100&offset=0`
+    + `&where=datetime>='${isoDate(from)}'%20AND%20datetime<='${isoDate(to)}'`
+    + `&order_by=datetime%20ASC`;
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Elia API fout');
+    const json = await r.json();
+    if (!json.results || !json.results.length) return null;
+
+    const prices = json.results.map(rec => {
+      const dt = new Date(rec.datetime);
+      // Elia geeft MWh prijs; deel door 1000 voor kWh
+      // Voeg Luminus toeslag toe voor realistische all-in prijs
+      const marketPrice = (rec.price ?? rec.da_price ?? rec.qh ?? 0) / 1000;
+      return {
+        date: dt.toLocaleDateString('nl-BE', { timeZone: CFG.tz }).split('/').reverse().map((v,i)=>i===0?v:v.padStart(2,'0')).join('-'),
+        hour: dt.toLocaleString('nl-BE', { timeZone: CFG.tz, hour: 'numeric', hour12: false }) | 0,
+        price: marketPrice + CFG.luminusToeslag,
+        marketPrice,
+        isBest: false,
+      };
+    }).filter(p => !isNaN(p.hour));
+
+    if (!prices.length) return null;
+    return { prices, source: 'Elia Open Data', sourceLabel: 'Elia day-ahead + toeslag' };
+  } catch(e) {
+    return null;
+  }
+}
+
+// Alternatief: ENTSO-E via Elia endpoint met andere dataset
+async function fetchEliaFallback() {
+  // Dataset: ods018 = imbalance tariff, probeer ook ods030
+  const datasets = ['ods030', 'ods023'];
+  for (const ds of datasets) {
     try {
-      const r = await fetch(url);
+      const r = await fetch(`https://opendata.elia.be/api/explore/v2.1/catalog/datasets/${ds}/records?limit=1`);
       if (r.ok) {
-        const data = await r.json();
-        return { data, url };
+        const j = await r.json();
+        // Check if it has price fields
+        if (j.results?.length) {
+          const keys = Object.keys(j.results[0]);
+          if (keys.some(k => k.includes('price') || k.includes('prijs'))) {
+            return ds;
+          }
+        }
       }
-    } catch(e) { /* try next */ }
+    } catch(e) {}
   }
   return null;
 }
 
-// Normaliseer prijsdata naar {date: "2025-02-23", hour: 14, price: 0.0834, total: 0.21}
-function normalizePrices(raw) {
+// ════════════════════════════════════════════════════════════
+// PRIJS DATA NORMALISEREN
+// Herkent diverse JSON formaten van machinery/Luminus
+// ════════════════════════════════════════════════════════════
+function parsePriceData(raw) {
   if (!raw) return [];
-  
-  // Detecteer formaat: array of objects met datetime/price
+
   if (Array.isArray(raw)) {
-    return raw.map(item => {
-      // Probeer diverse veldnamen
-      const dt = item.datetime || item.timestamp || item.date || item.time;
-      const price = item.price || item.market_price || item.epex || item.value || 0;
-      const total = item.total || item.all_in || item.total_price || null;
-      
-      if (!dt) return null;
-      const d = new Date(dt);
-      return {
-        date: d.toISOString().slice(0, 10),
-        hour: d.getHours(),
-        price: parseFloat(price),
-        total: total ? parseFloat(total) : null,
-        raw: item
-      };
-    }).filter(Boolean);
+    return raw.flatMap(item => {
+      // Meerdere datetime veldnamen proberen
+      const dtStr = item.datetime ?? item.timestamp ?? item.date ?? item.time ?? item.Datetime;
+      const price  = item.price ?? item.market_price ?? item.epex ?? item.value
+                  ?? item.Price ?? item.all_in ?? item.total_price ?? null;
+      if (!dtStr || price === null) return [];
+
+      const dt = new Date(dtStr);
+      if (isNaN(dt)) return [];
+
+      return [{
+        date: dt.toLocaleDateString('nl-BE', { timeZone: CFG.tz })
+               .split('/').reverse().map((v,i)=>i===0?v:v.padStart(2,'0')).join('-'),
+        hour: dt.toLocaleString('nl-BE', { timeZone: CFG.tz, hour: 'numeric', hour12: false }) | 0,
+        price: +price,
+        isBest: false,
+      }];
+    });
   }
-  
-  // Object met datum-keys
-  if (typeof raw === 'object' && !Array.isArray(raw)) {
-    const result = [];
+
+  // Object met datumsleutels: { "2025-02-23": { "14": 0.08, ... }, ... }
+  if (typeof raw === 'object') {
+    const out = [];
     for (const [key, val] of Object.entries(raw)) {
-      if (typeof val === 'object' && !Array.isArray(val)) {
-        // {date: {hour: price}} of {date: [{hour, price}]}
-        const d = new Date(key);
-        if (!isNaN(d)) {
-          for (const [h, p] of Object.entries(val)) {
-            result.push({
-              date: key.slice(0, 10),
-              hour: parseInt(h),
-              price: parseFloat(p),
-              total: null
-            });
-          }
+      const d = new Date(key);
+      if (!isNaN(d) && typeof val === 'object' && !Array.isArray(val)) {
+        for (const [h, p] of Object.entries(val)) {
+          out.push({ date: key.slice(0,10), hour: +h, price: +p, isBest: false });
         }
       }
     }
-    return result;
+    return out;
   }
   return [];
 }
 
-// ═══════════════════════════════════════════════════════════════
-// BEREKENINGEN
-// ═══════════════════════════════════════════════════════════════
-function calcDailySolar(solarData) {
-  // shortwave_radiation in W/m², hourly
-  // Dagproductie = som(W/m² * 1h) / 1000 * kWp * PR * tiltFactor / 1 (bij ideale inst. 1000 W/m²)
-  const { hourly } = solarData;
-  const times = hourly.time;
-  const rad = hourly.shortwave_radiation;
-  const cloud = hourly.cloudcover;
-  
+// ════════════════════════════════════════════════════════════
+// SOLAR BEREKENINGEN
+// ════════════════════════════════════════════════════════════
+function calcSolar(solarJson) {
+  const times = solarJson.hourly.time;
+  const rad   = solarJson.hourly.shortwave_radiation;
+  const cloud = solarJson.hourly.cloudcover;
+
   const byDate = {};
   times.forEach((t, i) => {
     const date = t.slice(0, 10);
-    if (!byDate[date]) byDate[date] = { radSum: 0, hours: [], cloud: [] };
+    if (!byDate[date]) byDate[date] = { radSum: 0, hours: [] };
     byDate[date].radSum += rad[i];
-    byDate[date].hours.push({ hour: parseInt(t.slice(11, 13)), rad: rad[i], cloud: cloud[i] });
+    byDate[date].hours.push({ hour: +t.slice(11,13), rad: rad[i], cloud: cloud[i] });
   });
-  
+
   return Object.entries(byDate).map(([date, d]) => {
-    // kWh = Wh/m² / 1000 * kWp * PR * tiltFactor
-    const kwhEst = (d.radSum / 1000) * CONFIG.panelKwp * CONFIG.performanceRatio * CONFIG.tiltFactor;
+    const kwhEst = (d.radSum / 1000) * CFG.kwp * CFG.pr * CFG.tilt;
     const avgCloud = d.hours.reduce((s, h) => s + h.cloud, 0) / d.hours.length;
-    return { date, kwhEst: Math.round(kwhEst * 10) / 10, hours: d.hours, avgCloud, radSum: d.radSum };
+    const peakHour = d.hours.reduce((best, h) => h.rad > best.rad ? h : best, { rad: 0, hour: 12 });
+    return {
+      date,
+      kwhEst: Math.round(kwhEst * 10) / 10,
+      avgCloud: Math.round(avgCloud),
+      hours: d.hours,
+      peakHour: peakHour.hour,
+    };
   });
 }
 
-function solarToColor(kwhEst, maxKwh) {
-  // 0 = rood, maxKwh = groen
-  const t = Math.min(1, Math.max(0, kwhEst / maxKwh));
-  
-  // Rood → Oranje → Geel → Groen
-  if (t < 0.33) {
-    const tt = t / 0.33;
-    const r = Math.round(180 + tt * (200 - 180));
-    const g = Math.round(30 + tt * (100 - 30));
-    const b = 20;
-    return `rgb(${r},${g},${b})`;
-  } else if (t < 0.66) {
-    const tt = (t - 0.33) / 0.33;
-    const r = Math.round(200 - tt * (200 - 180));
-    const g = Math.round(100 + tt * (160 - 100));
-    const b = 20;
-    return `rgb(${r},${g},${b})`;
-  } else {
-    const tt = (t - 0.66) / 0.34;
-    const r = Math.round(180 - tt * (180 - 20));
-    const g = Math.round(160 + tt * (195 - 160));
-    const b = Math.round(20 + tt * (80 - 20));
-    return `rgb(${r},${g},${b})`;
-  }
+function solarScore(kwhEst) {
+  if (kwhEst >= 22) return 'good';
+  if (kwhEst >= 9)  return 'mid';
+  return 'bad';
 }
 
-function darkenColor(color, amount = 0.5) {
-  // Maak een donkerdere versie voor achtergrond
-  const m = color.match(/rgb\((\d+),(\d+),(\d+)\)/);
-  if (!m) return '#1a1a2e';
-  const r = Math.round(parseInt(m[1]) * amount);
-  const g = Math.round(parseInt(m[2]) * amount);
-  const b = Math.round(parseInt(m[3]) * amount);
-  return `rgb(${r},${g},${b})`;
+function solarLabel(score) {
+  return score === 'good' ? 'Uitstekend' : score === 'mid' ? 'Gemiddeld' : 'Zwak';
 }
 
-function findBestBuyWindow(prices, date, windowHours = 3) {
+function solarIcon(score) {
+  return score === 'good' ? '🟢' : score === 'mid' ? '🟡' : '🔴';
+}
+
+// ════════════════════════════════════════════════════════════
+// PRIJZEN ANALYSE
+// ════════════════════════════════════════════════════════════
+
+// Markeer beste 3-uurs aankoopvenster
+function annotateBestWindow(prices, date, windowH = 3) {
   const dayPrices = prices.filter(p => p.date === date).sort((a, b) => a.hour - b.hour);
-  if (dayPrices.length < windowHours) return null;
-  
-  // Zoek goedkoopste aaneengesloten periode
+  if (dayPrices.length < windowH) {
+    dayPrices.forEach(p => { p.isBest = false; });
+    return null;
+  }
+
   let bestStart = 0, bestSum = Infinity;
-  for (let i = 0; i <= dayPrices.length - windowHours; i++) {
-    const sum = dayPrices.slice(i, i + windowHours).reduce((s, p) => s + p.price, 0);
+  for (let i = 0; i <= dayPrices.length - windowH; i++) {
+    const sum = dayPrices.slice(i, i + windowH).reduce((s, p) => s + p.price, 0);
     if (sum < bestSum) { bestSum = sum; bestStart = i; }
   }
-  const window = dayPrices.slice(bestStart, bestStart + windowHours);
+  const window = dayPrices.slice(bestStart, bestStart + windowH);
+  window.forEach(p => { p.isBest = true; });
+
+  const startH = window[0].hour;
+  const endH   = window[windowH - 1].hour + 1;
+  const avgP   = bestSum / windowH;
+
   return {
-    startHour: window[0].hour,
-    endHour: window[windowHours - 1].hour + 1,
-    avgPrice: bestSum / windowHours,
-    hours: window
+    label: `${pad(startH)}:00–${pad(endH)}:00`,
+    avgPrice: avgP,
+    minPrice: Math.min(...dayPrices.map(p => p.price)),
+    hours: window,
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════════════════════════════
-const WEEKDAYS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
-const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+function pad(n) { return String(n).padStart(2, '0'); }
 
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00');
-  return { wd: WEEKDAYS[d.getDay()], day: d.getDate(), month: MONTHS[d.getMonth()] };
+function bestSolarWindow(solarDay) {
+  // Uren met >70% van de piekproductie
+  const maxRad = Math.max(...solarDay.hours.map(h => h.rad));
+  const goodHours = solarDay.hours.filter(h => h.rad >= maxRad * 0.7).map(h => h.hour).sort((a,b)=>a-b);
+  if (!goodHours.length) return `${pad(solarDay.peakHour)}:00`;
+  return `${pad(goodHours[0])}:00–${pad(goodHours[goodHours.length - 1] + 1)}:00`;
 }
 
-function getConditionText(kwhEst, avgCloud) {
-  if (kwhEst >= 30) return '☀️ Uitstekend';
-  if (kwhEst >= 20) return '🌤️ Goed';
-  if (kwhEst >= 12) return '⛅ Matig';
-  if (kwhEst >= 5)  return '🌥️ Bewolkt';
-  return '☁️ Slecht';
-}
+// ════════════════════════════════════════════════════════════
+// KAARTEN BOUWEN
+// ════════════════════════════════════════════════════════════
 
-function renderHourlyDualChart(dayData, dayPrices, bestWindow, showLabels = true) {
-  // Alle uren 6-22 weergeven
-  const hours = [];
-  for (let h = 6; h <= 22; h++) hours.push(h);
-  
-  const maxRad = Math.max(...dayData.hours.map(h => h.rad), 1);
-  const maxPrice = dayPrices.length > 0 ? Math.max(...dayPrices.map(p => Math.abs(p.price)), 0.001) : 0;
-  const minPrice = dayPrices.length > 0 ? Math.min(...dayPrices.map(p => p.price)) : 0;
-  const priceRange = maxPrice - Math.min(minPrice, 0);
-  
-  const bestHours = bestWindow ? bestWindow.hours.map(h => h.hour) : [];
-  
-  let html = '<div class="dual-chart">';
-  hours.forEach(h => {
-    const solarHour = dayData.hours.find(d => d.hour === h);
-    const priceHour = dayPrices.find(p => p.hour === h);
-    const isBest = bestHours.includes(h);
-    
-    const solarPct = solarHour ? (solarHour.rad / maxRad) * 100 : 0;
-    let pricePct = 0, priceColor = '#3b9eff';
-    
-    if (priceHour && priceRange > 0) {
-      pricePct = Math.max(5, ((priceHour.price - Math.min(minPrice, 0)) / priceRange) * 100);
-      // Groen=goedkoop, rood=duur
-      const t = (priceHour.price - minPrice) / (maxPrice - minPrice);
-      const r = Math.round(34 + t * (239 - 34));
-      const g = Math.round(197 - t * (197 - 68));
-      priceColor = `rgb(${r},${g},80)`;
-    }
-    
-    const showLabel = (h % 3 === 0);
-    html += `<div class="dc-col ${isBest ? 'best-hour' : ''}" title="${h}:00${priceHour ? ` — €${priceHour.price.toFixed(4)}/kWh` : ''}${solarHour ? ` | ${Math.round(solarHour.rad)}W/m²` : ''}">
-      <div class="dc-solar" style="height:${solarPct}%"></div>
-      ${priceHour ? `<div class="dc-price" style="height:${pricePct}%;background:${priceColor};opacity:0.9"></div>` : ''}
-      ${showLabel && showLabels ? `<div class="dc-hour-label">${h}</div>` : ''}
-    </div>`;
-  });
-  html += '</div>';
-  return html;
-}
+function buildDayData(solarDays, prices) {
+  const now = new Date();
+  const todayStr    = localDate(now);
+  const tomorrowStr = localDate(new Date(+now + 864e5));
+  const weekdays    = ['zo','ma','di','wo','do','vr','za'];
+  const months      = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 
-function renderDetailPanel(label, dayData, dayPrices, bestWindow) {
-  const hasPrices = dayPrices.length > 0;
-  let html = `<div class="detail-panel">
-    <div class="detail-panel-title"><span>📊</span> ${label} — detail</div>`;
-  
-  html += renderHourlyDualChart(dayData, dayPrices, bestWindow, true);
-  
-  html += `<div class="chart-legend">
-    <div class="legend-item"><div class="legend-dot" style="background:rgba(240,165,0,0.5)"></div>Zonne-opbrengst</div>`;
-  if (hasPrices) {
-    html += `<div class="legend-item"><div class="legend-dot" style="background:linear-gradient(to right,#22c55e,#ef4444)"></div>Aankoopprijs</div>`;
-  }
-  html += `</div>`;
-  
-  if (bestWindow && hasPrices) {
-    html += `<div class="best-buy-info">
-      <div class="best-buy-label">⭐ Beste aankoopmoment (${bestWindow.hours.length}u)</div>
-      <div class="best-buy-time">${String(bestWindow.startHour).padStart(2,'0')}:00 – ${String(bestWindow.endHour).padStart(2,'0')}:00</div>
-      <div class="best-buy-price">Gem. €${bestWindow.avgPrice.toFixed(4)}/kWh · Ideaal voor: wasmachine, vaatwasser, laadpaal</div>
-    </div>`;
-  } else if (!hasPrices) {
-    html += `<div class="info-box">💡 Prijsdata niet beschikbaar voor deze dag</div>`;
-  }
-  
-  html += '</div>';
-  return html;
-}
+  return solarDays.map((sd, idx) => {
+    const d     = new Date(sd.date + 'T12:00:00');
+    const score = solarScore(sd.kwhEst);
+    const hasPrices = prices.filter(p => p.date === sd.date).length > 0;
 
-function renderApp(solarData, pricesResult) {
-  const dailySolar = calcDailySolar(solarData);
-  const maxKwh = Math.max(...dailySolar.map(d => d.kwhEst), 10);
-  
-  let prices = [];
-  let pricesError = null;
-  let pricesUrl = null;
-  
-  if (pricesResult) {
-    prices = normalizePrices(pricesResult.data);
-    pricesUrl = pricesResult.url;
-  } else {
-    pricesError = 'Geen prijsdata gevonden';
-  }
-  
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  
-  const todayData = dailySolar.find(d => d.date === today);
-  const tomorrowData = dailySolar.find(d => d.date === tomorrow);
-  
-  const todayPrices = prices.filter(p => p.date === today);
-  const tomorrowPrices = prices.filter(p => p.date === tomorrow);
-  
-  const bestToday = findBestBuyWindow(prices, today, 3);
-  const bestTomorrow = findBestBuyWindow(prices, tomorrow, 3);
-  
-  // ── Action banner ──
-  let actionText = '';
-  let actionChips = '';
-  
-  if (todayData) {
-    const cond = getConditionText(todayData.kwhEst, todayData.avgCloud);
-    actionText = `Vandaag verwacht: <strong>${todayData.kwhEst} kWh</strong> solar. `;
-    actionChips += `<span class="chip solar">☀️ ${todayData.kwhEst} kWh vandaag</span>`;
-    
-    if (bestToday) {
-      actionText += `Beste aankoopmoment: <strong>${String(bestToday.startHour).padStart(2,'0')}:00–${String(bestToday.endHour).padStart(2,'0')}:00</strong> (€${bestToday.avgPrice.toFixed(4)}/kWh).`;
-      actionChips += `<span class="chip price">⚡ ${String(bestToday.startHour).padStart(2,'0')}:00–${String(bestToday.endHour).padStart(2,'0')}:00 goedkoopst</span>`;
+    const bestPrice  = hasPrices ? annotateBestWindow(prices, sd.date, 3) : null;
+    const bestSolar  = bestSolarWindow(sd);
+    const bestWindow = bestPrice ? bestPrice.label : bestSolar;
+    const bestLabel  = bestPrice ? 'Beste netmoment' : 'Beste zonmoment';
+
+    let advice, adviceTone;
+    if (score === 'good' && bestPrice && bestPrice.minPrice < 0.08) {
+      advice = 'ZON + NET GUNSTIG'; adviceTone = 'good';
+    } else if (score === 'good') {
+      advice = 'ZON VERBRUIKEN'; adviceTone = 'good';
+    } else if (bestPrice && bestPrice.minPrice < 0.08) {
+      advice = 'NET VERBRUIKEN'; adviceTone = 'mid';
+    } else if (score === 'bad') {
+      advice = 'UITSTELLEN'; adviceTone = 'bad';
     } else {
-      actionText += `Start grote apparaten wanneer zonne-opbrengst piekt.`;
-      actionChips += `<span class="chip">Prijsdata niet beschikbaar</span>`;
+      advice = 'FLEXIBEL'; adviceTone = 'mid';
     }
-    
-    if (todayData.kwhEst >= 20) {
-      actionChips += `<span class="chip good">Goede zondag ☀️</span>`;
-    } else if (todayData.kwhEst < 5) {
-      actionChips += `<span class="chip bad">Weinig zon vandaag</span>`;
-    }
-  }
-  
-  const nowStr = new Date().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('lastUpdate').textContent = `update ${nowStr}`;
-  
-  let html = `
-    <div class="action-banner">
-      <div class="action-icon">🎯</div>
-      <div class="action-content">
-        <div class="action-title">Actie vandaag</div>
-        <div class="action-text">${actionText || 'Solar data geladen.'}</div>
-        <div class="action-chips">${actionChips}</div>
-        ${pricesError ? `<div class="error-box" style="margin-top:8px">⚠️ ${pricesError} — stel correcte URL in hieronder</div>` : ''}
-        ${pricesUrl ? `<div style="font-family:var(--mono);font-size:0.55rem;color:var(--text-muted);margin-top:4px">📡 Prijzen: ${pricesUrl}</div>` : ''}
-      </div>
-    </div>`;
-  
-  // ── Week tiles ──
-  html += '<div class="section-header">WEEKOVERZICHT — ZONNEVERWACHTING</div>';
-  html += '<div class="week-grid">';
-  
-  dailySolar.forEach(day => {
-    const { wd, dd, month } = { ...formatDate(day.date) };
-    const { day: dd2, month: month2 } = formatDate(day.date);
-    const isToday = day.date === today;
-    const isTomorrow = day.date === tomorrow;
-    
-    const color = solarToColor(day.kwhEst, maxKwh);
-    const darkBg = darkenColor(color, 0.22);
-    const pct = Math.min(100, (day.kwhEst / maxKwh) * 100);
-    
-    let badge = '';
-    if (isToday) badge = '<span class="tile-badge">vandaag</span>';
-    else if (isTomorrow) badge = '<span class="tile-badge">morgen</span>';
-    
-    html += `<div class="day-tile ${isToday ? 'today' : ''} ${isTomorrow ? 'tomorrow' : ''}" 
-      style="background:linear-gradient(160deg, ${darkBg} 0%, ${darkenColor(color, 0.15)} 100%); border-color:${darkenColor(color, 0.4)}">
-      <div class="tile-header">
-        <div>
-          <div class="tile-weekday">${formatDate(day.date).wd}</div>
-          <div class="tile-date">${dd2} ${month2}</div>
-        </div>
-        ${badge}
-      </div>
-      <div class="tile-solar-bar">
-        <div class="solar-bar-track">
-          <div class="solar-bar-fill" style="width:${pct}%"></div>
-        </div>
-      </div>
-      <div class="tile-kwh">
-        <span class="kwh-value">${day.kwhEst}</span>
-        <span class="kwh-unit">kWh</span>
-      </div>
-      <div class="tile-condition">${getConditionText(day.kwhEst, day.avgCloud)}</div>
-    </div>`;
+
+    const isToday    = sd.date === todayStr;
+    const isTomorrow = sd.date === tomorrowStr;
+    const label = isToday ? 'Vandaag' : isTomorrow ? 'Morgen'
+                : weekdays[d.getDay()].charAt(0).toUpperCase() + weekdays[d.getDay()].slice(1)
+                + 'dag'.repeat(+(weekdays[d.getDay()] !== 'za' && weekdays[d.getDay()] !== 'zo'
+                    && weekdays[d.getDay()] !== 'di' && weekdays[d.getDay()] !== 'vr'));
+
+    // Betere dagbenamingen
+    const labelMap = { ma:'Maandag', di:'Dinsdag', wo:'Woensdag', do:'Donderdag',
+                       vr:'Vrijdag', za:'Zaterdag', zo:'Zondag' };
+    const dayLabel = isToday ? 'Vandaag' : isTomorrow ? 'Morgen' : labelMap[weekdays[d.getDay()]];
+    const dateStr  = `${weekdays[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+
+    return {
+      key: sd.date,
+      label: dayLabel,
+      date: dateStr,
+      solarKwh: sd.kwhEst,
+      score,
+      bestWindow,
+      bestLabel,
+      minPrice: bestPrice?.minPrice ?? null,
+      advice: { text: advice, tone: adviceTone },
+      tappable: hasPrices,
+      prices: prices.filter(p => p.date === sd.date).sort((a,b)=>a.hour-b.hour),
+      isPrimary: idx < 2,
+    };
   });
-  
-  html += '</div>'; // week-grid
-  
-  // ── Detail panels today + tomorrow ──
-  html += '<div class="section-header" style="margin-top:20px">DETAIL: VANDAAG & MORGEN — PRIJS + ZON</div>';
-  html += '<div class="detail-row">';
-  
-  if (todayData) {
-    html += renderDetailPanel('Vandaag', todayData, todayPrices, bestToday);
-  }
-  if (tomorrowData) {
-    html += renderDetailPanel('Morgen', tomorrowData, tomorrowPrices, bestTomorrow);
-  }
-  
-  html += '</div>'; // detail-row
-  
-  // ── Configuratie sectie (als geen prijzen) ──
-  if (!pricesResult) {
-    html += `
-    <div class="section-header" style="margin-top:20px">CONFIGURATIE PRIJSDATA</div>
-    <div style="padding:0 24px">
-      <div class="no-prices-note">
-        <strong>Elektriciteitsprijzen niet gevonden.</strong><br><br>
-        Zorg dat uw <code>machinery</code> repo een JSON bestand publiceert via GitHub Pages.<br>
-        Verwacht formaat: array van <code>[{"datetime":"2025-02-23T14:00:00","price":0.0834}, ...]</code><br>
-        of <code>[{"datetime":"...","price":0.08,"total":0.21}, ...]</code><br><br>
-        Stel de URL hieronder in:
-        <div class="config-url">
-          Prijzen JSON URL:
-          <input type="text" id="customPriceUrl" value="${CONFIG.pricesUrl}" placeholder="https://dsoubry.github.io/machinery/prices.json">
-          <button onclick="retryWithUrl()">Opnieuw laden</button>
-        </div>
-      </div>
-    </div>`;
-  }
-  
-  document.getElementById('app').innerHTML = html;
 }
 
-function retryWithUrl() {
-  const url = document.getElementById('customPriceUrl').value;
-  CONFIG.pricesUrl = url;
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+
+function toneColor(t) {
+  const s = getComputedStyle(document.documentElement);
+  if (t === 'good') return s.getPropertyValue('--good').trim();
+  if (t === 'bad')  return s.getPropertyValue('--bad').trim();
+  return s.getPropertyValue('--mid').trim();
+}
+
+function primaryCardHTML(d) {
+  const minPriceLine = d.minPrice != null
+    ? `<span class="meta">min €${d.minPrice.toFixed(3)}/kWh</span>`
+    : `<span class="meta">${d.bestLabel}</span>`;
+  return `
+    <div class="row">
+      <div class="left h">
+        <span class="badge-dot" aria-hidden="true"></span>
+        <div>
+          <p class="card-title">${d.label} <span class="muted" style="font-weight:650;">• ${d.date}</span></p>
+          <p class="card-sub">${d.tappable ? 'Tik voor uurprijzen ↗' : 'Geen uurprijzen beschikbaar'}</p>
+        </div>
+      </div>
+      <div class="right"><span class="chip ${d.advice.tone}">⚡ ${d.advice.text}</span></div>
+    </div>
+    <div class="grid2">
+      <div class="kpi">
+        <div class="kpi-label">☀ Verwachte zon</div>
+        <div class="kpi-value">${d.solarKwh.toFixed(1)} kWh</div>
+        <div class="kpi-note">Dagscore: ${solarLabel(d.score)}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">🕒 ${d.bestLabel}</div>
+        <div class="kpi-value" style="font-size:${d.bestWindow.length > 12 ? '17px' : '22px'}">${d.bestWindow}</div>
+        <div class="kpi-note">Meest gunstige periode</div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="chip ${d.score}">${solarIcon(d.score)} Zon: ${solarLabel(d.score)}</span>
+      ${minPriceLine}
+    </div>`;
+}
+
+function compactCardHTML(d) {
+  return `
+    <div class="row">
+      <div class="left h">
+        <span class="badge-dot" aria-hidden="true"></span>
+        <div>
+          <p class="card-title">${d.label} <span class="muted" style="font-weight:650;">• ${d.date}</span></p>
+          <p class="card-sub">${solarIcon(d.score)} ${solarLabel(d.score)} • ${d.advice.text}</p>
+        </div>
+      </div>
+      <div class="right"><span class="chip ${d.advice.tone}">⚡ ${d.advice.text}</span></div>
+    </div>
+    <div class="compact-line">
+      <div class="compact-kwh">☀ ${d.solarKwh.toFixed(1)} kWh</div>
+      <div class="compact-time">🕒 ${d.bestWindow}</div>
+    </div>`;
+}
+
+function renderCards(days, sourceLabel) {
+  const cardsEl = document.getElementById('cards');
+  cardsEl.innerHTML = '';
+
+  days.forEach(d => {
+    const card = document.createElement('section');
+    card.className = `card ${d.isPrimary ? 'primary' : 'compact'} ${d.tappable ? 'tap' : ''}`;
+    card.style.setProperty('--bar', toneColor(d.score));
+    card.style.setProperty('--dot', toneColor(d.score));
+    card.innerHTML = d.isPrimary ? primaryCardHTML(d) : compactCardHTML(d);
+    if (d.tappable) card.addEventListener('click', () => openSheet(d, sourceLabel));
+    cardsEl.appendChild(card);
+  });
+
+  // Bron-noot onderaan
+  const note = document.createElement('p');
+  note.className = 'source-note';
+  note.innerHTML = `<span class="source-dot ${sourceLabel.includes('Elia') ? 'warn' : ''}"></span>
+    Prijsbron: ${sourceLabel || '—'} · Solar: Open-Meteo`;
+  cardsEl.appendChild(note);
+}
+
+// ════════════════════════════════════════════════════════════
+// BOTTOM SHEET
+// ════════════════════════════════════════════════════════════
+
+function openSheet(day, sourceLabel) {
+  document.getElementById('sheetTitle').textContent = `${day.label} • ${day.date}`;
+  document.getElementById('sheetSub').textContent   = `☀ ${day.solarKwh.toFixed(1)} kWh • ${day.advice.text}`;
+  document.getElementById('priceSource').textContent = `📡 Bron: ${sourceLabel}`;
+
+  const bestWindow = day.prices.filter(p => p.isBest);
+  const bestLabel  = bestWindow.length
+    ? `${pad(bestWindow[0].hour)}:00–${pad(bestWindow[bestWindow.length-1].hour+1)}:00`
+    : '—';
+  document.getElementById('bestPill').textContent = `🕒 Beste netmoment: ${bestLabel}`;
+
+  const grid = document.getElementById('hourGrid');
+  grid.innerHTML = '';
+  day.prices.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = `hour ${priceTone(p.price, day.prices)} ${p.isBest ? 'best' : ''}`;
+    btn.type = 'button';
+    btn.innerHTML = `
+      <div class="t">${pad(p.hour)}:00</div>
+      <div class="p">€ ${p.price.toFixed(3)}</div>
+      <div class="hint">${p.isBest ? '⭐ Beste moment' : ' '}</div>`;
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      document.querySelectorAll('.hour.best').forEach(x => x.classList.remove('best'));
+      btn.classList.add('best');
+      document.getElementById('bestPill').textContent = `🕒 Gekozen: ${pad(p.hour)}:00 (€${p.price.toFixed(3)}/kWh)`;
+    });
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('overlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// ════════════════════════════════════════════════════════════
+// CONFIG SHEET
+// ════════════════════════════════════════════════════════════
+
+function openConfig() {
+  document.getElementById('cfgUrl').value = getMachineryUrl();
+  document.getElementById('configOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeConfig() {
+  document.getElementById('configOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  saveMachineryUrl(url);
+  closeConfig();
   init();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════
+// Events
+document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeSheet(); });
+document.getElementById('configOverlay').addEventListener('click', e => { if (e.target === document.getElementById('configOverlay')) closeConfig(); });
+document.getElementById('btnClose').addEventListener('click', closeSheet);
+document.getElementById('btnCloseConfig').addEventListener('click', closeConfig);
+document.getElementById('btnSettings').addEventListener('click', openConfig);
+window.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeConfig(); } });
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+
+function localDate(d) {
+  // Geeft YYYY-MM-DD in lokale tijdzone
+  return d.toLocaleDateString('nl-BE', { timeZone: CFG.tz })
+    .split('/').reverse().map((v,i) => i === 0 ? v : v.padStart(2,'0')).join('-');
+}
+
+function isoDate(d) { return d.toISOString().slice(0,19); }
+
+function priceTone(price, all) {
+  const vals = all.map(x => x.price).slice().sort((a,b)=>a-b);
+  const p20  = quantile(vals, 0.20);
+  const p70  = quantile(vals, 0.70);
+  if (price <= p20) return 'good';
+  if (price >= p70) return 'bad';
+  return 'mid';
+}
+
+function quantile(arr, q) {
+  if (!arr.length) return 0;
+  const pos  = (arr.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  return arr[base + 1] !== undefined ? arr[base] + rest * (arr[base + 1] - arr[base]) : arr[base];
+}
+
+// ════════════════════════════════════════════════════════════
+// MAIN
+// ════════════════════════════════════════════════════════════
+
 async function init() {
-  document.getElementById('app').innerHTML = `
-    <div class="loading-overlay">
-      <div class="spinner"></div>
-      <div class="loading-text">Solar forecast ophalen via Open-Meteo...<br>Elektriciteitsprijzen laden...</div>
-    </div>`;
-  
+  const cardsEl = document.getElementById('cards');
+  cardsEl.innerHTML = `<div class="loader"><div class="spinner"></div><div class="loader-text">Solar forecast ophalen…<br>Elektriciteitsprijzen laden…</div></div>`;
+
   try {
-    const [solarData, pricesResult] = await Promise.all([
-      fetchSolarForecast(),
-      fetchPrices()
+    // Altijd solar ophalen (gratis, geen key)
+    const [solarJson, machineryResult, eliaResult] = await Promise.all([
+      fetchSolar(),
+      fetchMachineryPrices(getMachineryUrl()),
+      fetchEliaPrices(),
     ]);
-    
-    renderApp(solarData, pricesResult);
-    
+
+    const solarDays = calcSolar(solarJson);
+
+    // Prioriteit: 1) machinery (Luminus), 2) Elia day-ahead, 3) geen prijzen
+    const priceResult = machineryResult ?? eliaResult;
+    const prices      = priceResult?.prices ?? [];
+    const sourceLabel = priceResult?.sourceLabel ?? 'Geen prijsdata beschikbaar';
+
+    const days = buildDayData(solarDays, prices);
+    renderCards(days, sourceLabel);
+
+    const now = new Date();
+    document.getElementById('subtitle').textContent =
+      `Week • bijgewerkt ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
   } catch(err) {
-    document.getElementById('app').innerHTML = `
-      <div class="loading-overlay">
-        <div class="error-box" style="font-size:0.8rem;padding:16px">
-          ❌ Fout bij laden: ${err.message}
-        </div>
+    cardsEl.innerHTML = `
+      <div class="loader">
+        <div style="font-size:24px">⚠️</div>
+        <div class="loader-text" style="color:var(--bad);">Fout bij laden:<br>${err.message}</div>
+        <button onclick="init()" style="margin-top:12px;padding:10px 20px;border-radius:12px;border:none;background:var(--good);color:#000;font-weight:700;cursor:pointer">Opnieuw proberen</button>
       </div>`;
-    document.getElementById('statusDot').style.background = '#ef4444';
-    document.getElementById('statusDot').style.boxShadow = '0 0 6px #ef4444';
   }
 }
 
-// Auto-refresh elke 30 minuten
+// Start + auto-refresh elk half uur
 init();
 setInterval(init, 30 * 60 * 1000);
 </script>
