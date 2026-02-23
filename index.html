@@ -209,19 +209,8 @@
     .source-dot.warn{ background: var(--mid); }
     .source-dot.err{ background: var(--bad); }
 
-    .config-area{
-      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10);
-      border-radius: 16px; padding: 14px; margin-top: 10px;
-    }
-    .config-area label{ font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
-    .config-area input{
-      width: 100%; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.14);
-      color: var(--text); border-radius: 10px; padding: 9px 12px; font-size: 12px; font-family: monospace;
-    }
-    .config-area button{
-      margin-top: 8px; padding: 9px 18px; border-radius: 10px; border: none;
-      background: var(--good); color: #000; font-size: 12px; font-weight: 740; cursor:pointer;
-    }
+
+
   </style>
 </head>
 
@@ -279,35 +268,8 @@
   </div>
 </div>
 
-<!-- Config sheet -->
-<div class="overlay" id="configOverlay" role="dialog">
-  <div class="sheet">
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-title">Instellingen</div>
-        <div class="sheet-sub">Prijsdata configuratie</div>
-      </div>
-      <button class="close" id="btnCloseConfig" aria-label="Sluiten">
-        <svg class="icon" viewBox="0 0 24 24" fill="none">
-          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-    <div class="sheet-body">
-      <div class="config-area">
-        <label>URL van jouw machinery JSON (leeg = automatisch Elia day-ahead)</label>
-        <input type="url" id="cfgUrl" placeholder="https://dsoubry.github.io/machinery/prices.json">
-        <button onclick="saveConfig()">Opslaan &amp; herladen</button>
-      </div>
-      <p style="margin-top:14px;font-size:12px;color:var(--muted2);line-height:1.6;">
-        Verwacht formaat van jouw JSON:<br>
-        <code style="font-size:11px;color:var(--muted);">[{"datetime":"2025-02-23T14:00:00","price":0.0834}, …]</code><br>
-        <code style="font-size:11px;color:var(--muted);">[{"timestamp":"…","market_price":0.0834,"total_price":0.21}, …]</code><br><br>
-        Als geen URL ingesteld → automatisch Elia Open Data (day-ahead BELPEX prijzen).
-      </p>
-    </div>
-  </div>
-</div>
+
+
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -324,13 +286,8 @@ const CFG = {
   luminusToeslag: 0.065,
 };
 
-// Haal eventueel opgeslagen machinery URL op
-function getMachineryUrl() {
-  try { return localStorage.getItem('machinery_url') || ''; } catch(e) { return ''; }
-}
-function saveMachineryUrl(url) {
-  try { localStorage.setItem('machinery_url', url); } catch(e) {}
-}
+
+
 
 // ════════════════════════════════════════════════════════════
 // DATA OPHALEN
@@ -348,127 +305,91 @@ async function fetchSolar() {
   return r.json();
 }
 
-// Probeer machinery-repo JSON (jouw gepubliceerde prijzen)
-async function fetchMachineryPrices(url) {
-  if (!url) return null;
+// ── Parset de machinery GitHub Pages HTML ────────────────────
+// De prijzen zitten ingebakken in de HTML (geen apart JSON-bestand).
+// Structuur: <div id="content-today"> / <div id="content-tomorrow">
+//   <table> <tr> <td data-label="Uurblok">13.00u – 14.00u</td>
+//                <td data-label="Prijs (€/MWh)">5.31 €</td> ...
+async function fetchMachineryPrices() {
+  const MACHINERY_URL = 'https://dsoubry.github.io/machinery/';
   try {
-    const r = await fetch(url, { cache: 'no-cache' });
-    if (!r.ok) return null;
-    const data = await r.json();
-    const parsed = parsePriceData(data);
-    if (parsed.length) return { prices: parsed, source: url, sourceLabel: 'Luminus Dynamic (machinery)' };
-  } catch(e) {}
-  return null;
-}
+    // CORS: machinery zit op dezelfde GitHub Pages domein-familie — fetch werkt
+    const r = await fetch(MACHINERY_URL, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const html = await r.text();
 
-// Elia Open Data — day-ahead BELPEX prijzen (€/MWh → /1000 = €/kWh)
-// Dataset: ods031 = day-ahead prices Belgium
-async function fetchEliaPrices() {
-  const today = new Date();
-  const from = new Date(today);
-  from.setHours(0,0,0,0);
-  const to = new Date(today);
-  to.setDate(to.getDate() + 2);
-  to.setHours(23,0,0,0);
+    const parser = new DOMParser();
+    const doc    = parser.parseFromString(html, 'text/html');
 
-  // Elia open data dataset voor day-ahead tarieven
-  const url = `https://opendata.elia.be/api/explore/v2.1/catalog/datasets/ods031/records`
-    + `?limit=100&offset=0`
-    + `&where=datetime>='${isoDate(from)}'%20AND%20datetime<='${isoDate(to)}'`
-    + `&order_by=datetime%20ASC`;
+    const prices = [];
 
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('Elia API fout');
-    const json = await r.json();
-    if (!json.results || !json.results.length) return null;
+    // Haal datum uit tab-label: "Ma 23/2" → "2026-02-23"
+    function tabDate(tabId) {
+      const tab = doc.getElementById(tabId);
+      if (!tab) return null;
+      // Tekst bv. "Ma 23/2" of "Di 24/2"
+      const m = tab.textContent.trim().match(/(\d{1,2})\/(\d{1,2})/);
+      if (!m) return null;
+      const day   = m[1].padStart(2, '0');
+      const month = m[2].padStart(2, '0');
+      // Jaar: huidige jaar, maar pas op voor jaarwissel
+      const now   = new Date();
+      let year    = now.getFullYear();
+      // Als maand al voorbij is → volgend jaar
+      if (+month < now.getMonth() + 1) year++;
+      return `${year}-${month}-${day}`;
+    }
 
-    const prices = json.results.map(rec => {
-      const dt = new Date(rec.datetime);
-      // Elia geeft MWh prijs; deel door 1000 voor kWh
-      // Voeg Luminus toeslag toe voor realistische all-in prijs
-      const marketPrice = (rec.price ?? rec.da_price ?? rec.qh ?? 0) / 1000;
-      return {
-        date: dt.toLocaleDateString('nl-BE', { timeZone: CFG.tz }).split('/').reverse().map((v,i)=>i===0?v:v.padStart(2,'0')).join('-'),
-        hour: dt.toLocaleString('nl-BE', { timeZone: CFG.tz, hour: 'numeric', hour12: false }) | 0,
-        price: marketPrice + CFG.luminusToeslag,
-        marketPrice,
-        isBest: false,
-      };
-    }).filter(p => !isNaN(p.hour));
+    // Parse één dag-blok
+    function parseDay(contentId, date) {
+      if (!date) return;
+      const block = doc.getElementById(contentId);
+      if (!block) return;
+      const rows = block.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        // Uurblok: "13.00u – 14.00u" → beginuur = 13
+        const uurTd  = row.querySelector('td[data-label="Uurblok"]');
+        // Prijs: "5.31 €" (€/MWh) of "0.53 ct/kWh"
+        const mwhTd  = row.querySelector('td[data-label="Prijs (€/MWh)"]');
+        if (!uurTd || !mwhTd) return;
 
-    if (!prices.length) return null;
-    return { prices, source: 'Elia Open Data', sourceLabel: 'Elia day-ahead + toeslag' };
+        const uurMatch = uurTd.textContent.match(/(\d{1,2})[.:]/);
+        if (!uurMatch) return;
+        const hour = +uurMatch[1];
+
+        const priceMatch = mwhTd.textContent.match(/([\d.,]+)/);
+        if (!priceMatch) return;
+        // Prijs is €/MWh → deel door 1000 voor €/kWh (marktprijs)
+        const marketEurMwh = parseFloat(priceMatch[1].replace(',', '.'));
+        const marketEurKwh = marketEurMwh / 1000;
+
+        prices.push({
+          date,
+          hour,
+          // Marktprijs + vaste toeslag = all-in indicatief
+          price: marketEurKwh + CFG.luminusToeslag,
+          marketEurMwh,
+          isBest: row.classList.contains('best-single-hour'),
+        });
+      });
+    }
+
+    parseDay('content-today',    tabDate('tab-today'));
+    parseDay('content-tomorrow', tabDate('tab-tomorrow'));
+
+    if (!prices.length) throw new Error('Geen prijsrijen gevonden in HTML');
+
+    return {
+      prices,
+      sourceLabel: 'ENTSO-E via machinery (day-ahead)',
+    };
   } catch(e) {
+    console.warn('machinery fetch mislukt:', e.message);
     return null;
   }
 }
 
-// Alternatief: ENTSO-E via Elia endpoint met andere dataset
-async function fetchEliaFallback() {
-  // Dataset: ods018 = imbalance tariff, probeer ook ods030
-  const datasets = ['ods030', 'ods023'];
-  for (const ds of datasets) {
-    try {
-      const r = await fetch(`https://opendata.elia.be/api/explore/v2.1/catalog/datasets/${ds}/records?limit=1`);
-      if (r.ok) {
-        const j = await r.json();
-        // Check if it has price fields
-        if (j.results?.length) {
-          const keys = Object.keys(j.results[0]);
-          if (keys.some(k => k.includes('price') || k.includes('prijs'))) {
-            return ds;
-          }
-        }
-      }
-    } catch(e) {}
-  }
-  return null;
-}
 
-// ════════════════════════════════════════════════════════════
-// PRIJS DATA NORMALISEREN
-// Herkent diverse JSON formaten van machinery/Luminus
-// ════════════════════════════════════════════════════════════
-function parsePriceData(raw) {
-  if (!raw) return [];
-
-  if (Array.isArray(raw)) {
-    return raw.flatMap(item => {
-      // Meerdere datetime veldnamen proberen
-      const dtStr = item.datetime ?? item.timestamp ?? item.date ?? item.time ?? item.Datetime;
-      const price  = item.price ?? item.market_price ?? item.epex ?? item.value
-                  ?? item.Price ?? item.all_in ?? item.total_price ?? null;
-      if (!dtStr || price === null) return [];
-
-      const dt = new Date(dtStr);
-      if (isNaN(dt)) return [];
-
-      return [{
-        date: dt.toLocaleDateString('nl-BE', { timeZone: CFG.tz })
-               .split('/').reverse().map((v,i)=>i===0?v:v.padStart(2,'0')).join('-'),
-        hour: dt.toLocaleString('nl-BE', { timeZone: CFG.tz, hour: 'numeric', hour12: false }) | 0,
-        price: +price,
-        isBest: false,
-      }];
-    });
-  }
-
-  // Object met datumsleutels: { "2025-02-23": { "14": 0.08, ... }, ... }
-  if (typeof raw === 'object') {
-    const out = [];
-    for (const [key, val] of Object.entries(raw)) {
-      const d = new Date(key);
-      if (!isNaN(d) && typeof val === 'object' && !Array.isArray(val)) {
-        for (const [h, p] of Object.entries(val)) {
-          out.push({ date: key.slice(0,10), hour: +h, price: +p, isBest: false });
-        }
-      }
-    }
-    return out;
-  }
-  return [];
-}
 
 // ════════════════════════════════════════════════════════════
 // SOLAR BEREKENINGEN
@@ -747,35 +668,19 @@ function closeSheet() {
   document.body.style.overflow = '';
 }
 
+
 // ════════════════════════════════════════════════════════════
-// CONFIG SHEET
+// EVENTS
 // ════════════════════════════════════════════════════════════
 
-function openConfig() {
-  document.getElementById('cfgUrl').value = getMachineryUrl();
-  document.getElementById('configOverlay').classList.add('show');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeConfig() {
-  document.getElementById('configOverlay').classList.remove('show');
-  document.body.style.overflow = '';
-}
-
-function saveConfig() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  saveMachineryUrl(url);
-  closeConfig();
-  init();
-}
-
-// Events
 document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeSheet(); });
-document.getElementById('configOverlay').addEventListener('click', e => { if (e.target === document.getElementById('configOverlay')) closeConfig(); });
 document.getElementById('btnClose').addEventListener('click', closeSheet);
-document.getElementById('btnCloseConfig').addEventListener('click', closeConfig);
-document.getElementById('btnSettings').addEventListener('click', openConfig);
-window.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeConfig(); } });
+document.getElementById('btnSettings').addEventListener('click', () => {
+  alert('Databronnen:\n\n☀ Solar: Open-Meteo API (gratis, Brugge)\n⚡ Prijzen: dsoubry.github.io/machinery\n        (ENTSO-E day-ahead, inclusief vaste toeslag)\n\nPrijzen zijn marktprijs + CFG.luminusToeslag (standaard €0.065/kWh).');
+});
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+
 
 // ════════════════════════════════════════════════════════════
 // HELPERS
@@ -812,22 +717,17 @@ function quantile(arr, q) {
 
 async function init() {
   const cardsEl = document.getElementById('cards');
-  cardsEl.innerHTML = `<div class="loader"><div class="spinner"></div><div class="loader-text">Solar forecast ophalen…<br>Elektriciteitsprijzen laden…</div></div>`;
+  cardsEl.innerHTML = `<div class="loader"><div class="spinner"></div><div class="loader-text">Solar forecast ophalen…<br>Prijzen laden via machinery…</div></div>`;
 
   try {
-    // Altijd solar ophalen (gratis, geen key)
-    const [solarJson, machineryResult, eliaResult] = await Promise.all([
+    const [solarJson, priceResult] = await Promise.all([
       fetchSolar(),
-      fetchMachineryPrices(getMachineryUrl()),
-      fetchEliaPrices(),
+      fetchMachineryPrices(),
     ]);
 
-    const solarDays = calcSolar(solarJson);
-
-    // Prioriteit: 1) machinery (Luminus), 2) Elia day-ahead, 3) geen prijzen
-    const priceResult = machineryResult ?? eliaResult;
+    const solarDays   = calcSolar(solarJson);
     const prices      = priceResult?.prices ?? [];
-    const sourceLabel = priceResult?.sourceLabel ?? 'Geen prijsdata beschikbaar';
+    const sourceLabel = priceResult?.sourceLabel ?? 'Geen prijsdata (machinery niet bereikbaar)';
 
     const days = buildDayData(solarDays, prices);
     renderCards(days, sourceLabel);
