@@ -306,68 +306,54 @@ async function fetchSolar() {
 }
 
 // ── Parset de machinery GitHub Pages HTML ────────────────────
-// De prijzen zitten ingebakken in de HTML (geen apart JSON-bestand).
-// Structuur: <div id="content-today"> / <div id="content-tomorrow">
-//   <table> <tr> <td data-label="Uurblok">13.00u – 14.00u</td>
-//                <td data-label="Prijs (€/MWh)">5.31 €</td> ...
+// Tabelstructuur per rij: td[0]=uurblok, td[1]=€/MWh, td[2]=ct/kWh, td[3]=balk
+// Positie-gebaseerd — vermijdt querySelector-problemen met €-teken in attribuut.
 async function fetchMachineryPrices() {
   const MACHINERY_URL = 'https://dsoubry.github.io/machinery/';
   try {
-    // CORS: machinery zit op dezelfde GitHub Pages domein-familie — fetch werkt
     const r = await fetch(MACHINERY_URL, { cache: 'no-cache' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const html = await r.text();
 
     const parser = new DOMParser();
     const doc    = parser.parseFromString(html, 'text/html');
-
     const prices = [];
 
-    // Haal datum uit tab-label: "Ma 23/2" → "2026-02-23"
+    // Datum uit tab-label "Ma 23/2" of "Di 24/2"
     function tabDate(tabId) {
       const tab = doc.getElementById(tabId);
       if (!tab) return null;
-      // Tekst bv. "Ma 23/2" of "Di 24/2"
       const m = tab.textContent.trim().match(/(\d{1,2})\/(\d{1,2})/);
       if (!m) return null;
-      const day   = m[1].padStart(2, '0');
-      const month = m[2].padStart(2, '0');
-      // Jaar: huidige jaar, maar pas op voor jaarwissel
-      const now   = new Date();
-      let year    = now.getFullYear();
-      // Als maand al voorbij is → volgend jaar
+      const day = m[1].padStart(2, '0'), month = m[2].padStart(2, '0');
+      const now = new Date();
+      let year  = now.getFullYear();
       if (+month < now.getMonth() + 1) year++;
       return `${year}-${month}-${day}`;
     }
 
-    // Parse één dag-blok
     function parseDay(contentId, date) {
       if (!date) return;
       const block = doc.getElementById(contentId);
       if (!block) return;
-      const rows = block.querySelectorAll('tbody tr');
-      rows.forEach(row => {
-        // Uurblok: "13.00u – 14.00u" → beginuur = 13
-        const uurTd  = row.querySelector('td[data-label="Uurblok"]');
-        // Prijs: "5.31 €" (€/MWh) of "0.53 ct/kWh"
-        const mwhTd  = row.querySelector('td[data-label="Prijs (€/MWh)"]');
-        if (!uurTd || !mwhTd) return;
+      block.querySelectorAll('tbody tr').forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 2) return;
 
-        const uurMatch = uurTd.textContent.match(/(\d{1,2})[.:]/);
+        // td[0]: "13.00u – 14.00u"  → beginuur
+        const uurMatch = cells[0].textContent.match(/(\d{1,2})[.:]/);
         if (!uurMatch) return;
         const hour = +uurMatch[1];
 
-        const priceMatch = mwhTd.textContent.match(/([\d.,]+)/);
+        // td[1]: "5.31 €" of "112.74 €"  (€/MWh)
+        const priceMatch = cells[1].textContent.match(/([\d]+[.,][\d]+)/);
         if (!priceMatch) return;
-        // Prijs is €/MWh → deel door 1000 voor €/kWh (marktprijs)
         const marketEurMwh = parseFloat(priceMatch[1].replace(',', '.'));
-        const marketEurKwh = marketEurMwh / 1000;
 
         prices.push({
           date,
           hour,
-          // Marktprijs + vaste toeslag = all-in indicatief
-          price: marketEurKwh + CFG.luminusToeslag,
+          price: (marketEurMwh / 1000) + CFG.luminusToeslag,
           marketEurMwh,
           isBest: row.classList.contains('best-single-hour'),
         });
@@ -377,14 +363,52 @@ async function fetchMachineryPrices() {
     parseDay('content-today',    tabDate('tab-today'));
     parseDay('content-tomorrow', tabDate('tab-tomorrow'));
 
-    if (!prices.length) throw new Error('Geen prijsrijen gevonden in HTML');
+    if (!prices.length) throw new Error('Geen rijen gevonden — HTML-structuur gewijzigd?');
+    return { prices, sourceLabel: 'ENTSO-E via machinery' };
 
-    return {
-      prices,
-      sourceLabel: 'ENTSO-E via machinery (day-ahead)',
-    };
   } catch(e) {
     console.warn('machinery fetch mislukt:', e.message);
+    return { error: e.message };   // geef fout mee zodat fallback het kan loggen
+  }
+}
+
+// ── Elia Open Data — day-ahead BELPEX (fallback) ─────────────
+async function fetchEliaPrices() {
+  try {
+    const now  = new Date();
+    const from = new Date(now); from.setHours(0,0,0,0);
+    const to   = new Date(now); to.setDate(to.getDate() + 2); to.setHours(23,0,0,0);
+
+    const url = `https://opendata.elia.be/api/explore/v2.1/catalog/datasets/ods031/records`
+      + `?limit=100&order_by=datetime%20ASC`
+      + `&where=datetime%3E%3D%22${from.toISOString().slice(0,10)}T00%3A00%3A00%2B00%3A00%22`
+      + `%20AND%20datetime%3C%3D%22${to.toISOString().slice(0,10)}T23%3A00%3A00%2B00%3A00%22`;
+
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Elia HTTP ${r.status}`);
+    const json = await r.json();
+    if (!json.results?.length) throw new Error('Geen Elia-resultaten');
+
+    const prices = json.results.flatMap(rec => {
+      const dt = new Date(rec.datetime ?? rec.Datetime);
+      if (isNaN(dt)) return [];
+      // Elia geeft €/MWh; veld heet "price" of "da_price" afhankelijk van dataset
+      const mwh = rec.price ?? rec.da_price ?? rec.qh ?? null;
+      if (mwh === null) return [];
+      return [{
+        date: localDate(dt),
+        hour: dt.toLocaleString('nl-BE', { timeZone: CFG.tz, hour: 'numeric', hour12: false }) | 0,
+        price: (mwh / 1000) + CFG.luminusToeslag,
+        marketEurMwh: mwh,
+        isBest: false,
+      }];
+    }).filter(p => !isNaN(p.hour));
+
+    if (!prices.length) throw new Error('Geen bruikbare Elia-rijen');
+    return { prices, sourceLabel: 'Elia Open Data (day-ahead)' };
+
+  } catch(e) {
+    console.warn('Elia fetch mislukt:', e.message);
     return null;
   }
 }
@@ -720,14 +744,31 @@ async function init() {
   cardsEl.innerHTML = `<div class="loader"><div class="spinner"></div><div class="loader-text">Solar forecast ophalen…<br>Prijzen laden via machinery…</div></div>`;
 
   try {
-    const [solarJson, priceResult] = await Promise.all([
+    // Solar altijd ophalen
+    // Prijzen: probeer machinery HTML-parser, val terug op Elia Open Data
+    const [solarJson, machineryResult] = await Promise.all([
       fetchSolar(),
       fetchMachineryPrices(),
     ]);
 
-    const solarDays   = calcSolar(solarJson);
+    const solarDays = calcSolar(solarJson);
+
+    let priceResult = null;
+    if (machineryResult?.prices?.length) {
+      priceResult = machineryResult;
+    } else {
+      // Fallback: Elia Open Data
+      const eliaResult = await fetchEliaPrices();
+      if (eliaResult?.prices?.length) {
+        priceResult = eliaResult;
+        priceResult.sourceLabel += machineryResult?.error
+          ? ` (machinery: ${machineryResult.error})`
+          : ' (machinery niet bereikbaar)';
+      }
+    }
+
     const prices      = priceResult?.prices ?? [];
-    const sourceLabel = priceResult?.sourceLabel ?? 'Geen prijsdata (machinery niet bereikbaar)';
+    const sourceLabel = priceResult?.sourceLabel ?? 'Geen prijsdata beschikbaar';
 
     const days = buildDayData(solarDays, prices);
     renderCards(days, sourceLabel);
