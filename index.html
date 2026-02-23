@@ -126,64 +126,139 @@
     .compact-kwh{ font-size: 14px; font-weight: 760; }
     .compact-time{ font-size: 13px; color: var(--muted); white-space: nowrap; }
 
-    /* Bottom sheet */
+    /* Bottom sheet — mobile first */
     .overlay{
       position: fixed; inset: 0; z-index: 20; display:none;
       background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
-      padding: 18px 14px calc(16px + var(--safeBottom));
-      align-items:flex-end; justify-content:center;
+      padding: 0; align-items: flex-end; justify-content:center;
     }
     .overlay.show{ display:flex; }
     .sheet{
-      width: 100%; max-width: 520px; border-radius: 26px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: linear-gradient(180deg, rgba(15,22,40,.96), rgba(11,18,32,.92));
-      box-shadow: var(--shadow); overflow:hidden;
+      width: 100%; max-width: 520px;
+      border-radius: 26px 26px 0 0;          /* plakt aan onderkant op mobile */
+      border: 1px solid rgba(255,255,255,.14); border-bottom: none;
+      background: linear-gradient(180deg, rgba(15,22,40,.98), rgba(11,18,32,.96));
+      box-shadow: var(--shadow);
+      max-height: 92dvh;                      /* nooit groter dan scherm */
+      display: flex; flex-direction: column;
     }
     .sheet-head{
-      padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.10);
+      flex-shrink: 0;
+      padding: 10px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.10);
       display:flex; align-items:flex-start; justify-content:space-between; gap: 12px;
     }
-    .sheet-title{ margin: 2px 0 0; font-size: 16px; font-weight: 780; line-height: 1.2; }
+    .sheet-grab{
+      width: 44px; height: 5px; border-radius: 999px;
+      background: rgba(255,255,255,.18); margin: 10px auto 0;
+    }
+    .sheet-title{ margin: 8px 0 0; font-size: 16px; font-weight: 780; line-height: 1.2; }
     .sheet-sub{ margin: 4px 0 0; font-size: 12px; color: var(--muted); }
     .close{
-      width: 40px; height: 40px; border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); cursor:pointer;
+      width: 36px; height: 36px; border-radius: 12px; margin-top: 6px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06);
+      cursor:pointer; flex-shrink:0; display:grid; place-items:center;
     }
-    .close:active{ transform: scale(.98); }
-    .sheet-body{ padding: 12px 16px 16px; }
+    .close:active{ transform: scale(.95); }
 
-    .hour-grid{
-      display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px;
+    /* Scrollbare body */
+    .sheet-body{
+      flex: 1; overflow-y: auto; padding: 0 0 calc(16px + var(--safeBottom));
+      -webkit-overflow-scrolling: touch;
     }
-    @media (max-width: 360px){ .hour-grid{ grid-template-columns: repeat(3, 1fr); } }
 
-    .hour{
-      border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.05); padding: 10px 10px 9px;
-      text-align:left; cursor:pointer; user-select:none;
+    /* Legenda */
+    .sheet-legend{
+      display:flex; gap: 8px; flex-wrap: wrap;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .sh-pill{
+      display:inline-flex; align-items:center; gap: 6px;
+      padding: 5px 10px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04); font-size: 11px; color: var(--muted);
+    }
+    .sw{ width: 8px; height: 8px; border-radius: 999px; }
+
+    /* Uurlijst — mobile first: 1 rij per uur */
+    .hour-list{ display:flex; flex-direction:column; }
+
+    .hl-row{
+      display: grid;
+      grid-template-columns: 52px 1fr 56px;   /* uur | balk | prijs */
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      cursor: pointer;
       -webkit-tap-highlight-color: transparent;
-      transition: transform .12s ease, filter .12s ease;
+      transition: background .1s;
     }
-    .hour:active{ transform: translateY(1px); }
-    .hour .t{ font-size: 12px; color: var(--muted); letter-spacing: .2px; }
-    .hour .p{ margin-top: 5px; font-size: 14px; font-weight: 800; }
-    .hour .hint{ margin-top: 4px; font-size: 11px; color: var(--muted2); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
-    .hour.good{ border-color: color-mix(in srgb, var(--good) 38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--good) 18%, rgba(255,255,255,.05)); }
-    .hour.mid { border-color: color-mix(in srgb, var(--mid)  38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--mid)  18%, rgba(255,255,255,.05)); }
-    .hour.bad { border-color: color-mix(in srgb, var(--bad)  38%, rgba(255,255,255,.12)); background: color-mix(in srgb, var(--bad)  16%, rgba(255,255,255,.05)); }
-    .hour.best{ outline: 2px solid rgba(255,255,255,.85); outline-offset: 0px; box-shadow: 0 10px 22px rgba(0,0,0,.28); }
+    .hl-row:active{ background: rgba(255,255,255,.04); }
+    .hl-row.hl-best{
+      background: rgba(76,175,106,.08);
+      border-bottom-color: rgba(76,175,106,.15);
+    }
 
-    .legend{
+    .hl-time{
+      font-size: 13px; font-weight: 700; color: var(--text);
+      white-space: nowrap;
+    }
+    .hl-best .hl-time::before{
+      content: '⭐ '; font-size: 11px;
+    }
+
+    .hl-bar-wrap{
+      height: 8px; border-radius: 999px;
+      background: rgba(255,255,255,.06); overflow: hidden;
+    }
+    .hl-bar{
+      height: 100%; border-radius: inherit;
+      transition: width .4s ease;
+    }
+
+    .hl-price{
+      font-size: 13px; font-weight: 800;
+      text-align: right; white-space: nowrap;
+    }
+    .hl-price .hl-unit{
+      font-size: 10px; font-weight: 500; color: var(--muted2); display:block; margin-top: 1px;
+    }
+
+    /* Inline prijspreview in primary card */
+    .price-preview{
+      margin-top: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      overflow: hidden;
+    }
+    .pp-header{
       display:flex; align-items:center; justify-content:space-between;
-      gap: 10px; flex-wrap: wrap; margin-top: 12px;
+      padding: 8px 12px 6px;
+      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
     }
-    .pill{
-      display:inline-flex; align-items:center; gap: 8px; padding: 8px 10px;
-      border-radius: 999px; border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.05); font-size: 12px; color: var(--muted);
+    .pp-open-btn{
+      display:inline-flex; align-items:center; gap: 4px;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
+      border-radius: 999px; padding: 3px 8px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
-    .sw{ width: 10px; height: 10px; border-radius: 999px; background: var(--mid); }
+    .pp-open-btn:active{ background: rgba(255,255,255,.12); }
+
+    .pp-row{
+      display: grid;
+      grid-template-columns: 44px 1fr 52px;
+      align-items: center; gap: 8px;
+      padding: 6px 12px;
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+    .pp-row.pp-best{ background: rgba(76,175,106,.07); }
+    .pp-time{ font-size: 12px; font-weight: 700; }
+    .pp-bar-wrap{ height: 6px; border-radius: 999px; background: rgba(255,255,255,.06); overflow:hidden; }
+    .pp-bar{ height: 100%; border-radius: inherit; }
+    .pp-price{ font-size: 12px; font-weight: 800; text-align:right; white-space:nowrap; }
 
     .muted{ color: var(--muted); }
     .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -245,25 +320,26 @@
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="sheet">
     <div class="sheet-head">
-      <div>
+      <div style="flex:1; min-width:0;">
+        <div class="sheet-grab"></div>
         <div class="sheet-title" id="sheetTitle">Details</div>
         <div class="sheet-sub" id="sheetSub">—</div>
       </div>
       <button class="close" id="btnClose" aria-label="Sluiten">
-        <svg class="icon" viewBox="0 0 24 24" fill="none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
     </div>
+    <div class="sheet-legend">
+      <span class="sh-pill"><span class="sw" style="background:var(--good)"></span>Goedkoop</span>
+      <span class="sh-pill"><span class="sw" style="background:var(--mid)"></span>Gemiddeld</span>
+      <span class="sh-pill"><span class="sw" style="background:var(--bad)"></span>Duur</span>
+      <span class="sh-pill" id="bestPill">🕒 —</span>
+    </div>
     <div class="sheet-body">
-      <div class="legend">
-        <span class="pill"><span class="sw" style="background: var(--good)"></span> Goedkoop</span>
-        <span class="pill"><span class="sw" style="background: var(--mid)"></span> Gemiddeld</span>
-        <span class="pill"><span class="sw" style="background: var(--bad)"></span> Duur</span>
-        <span class="pill" id="bestPill">🕒 Beste moment: —</span>
-      </div>
-      <div class="hour-grid" id="hourGrid"></div>
-      <p id="priceSource" style="margin:12px 0 0; font-size:11px; color: var(--muted2);"></p>
+      <div class="hour-list" id="hourList"></div>
+      <p id="priceSource" style="padding:8px 14px 0;font-size:10px;color:var(--muted2);"></p>
     </div>
   </div>
 </div>
@@ -576,17 +652,63 @@ function toneColor(t) {
   return s.getPropertyValue('--mid').trim();
 }
 
+function priceColor(tone) {
+  if (tone === 'good') return 'var(--good)';
+  if (tone === 'bad')  return 'var(--bad)';
+  return 'var(--mid)';
+}
+
 function primaryCardHTML(d) {
   const minPriceLine = d.minPrice != null
     ? `<span class="meta">min €${d.minPrice.toFixed(3)}/kWh</span>`
     : `<span class="meta">${d.bestLabel}</span>`;
+
+  // Inline prijspreview: toon alle uren, gesorteerd goedkoopst eerst, top 5 zichtbaar
+  let previewHTML = '';
+  if (d.tappable && d.prices.length) {
+    // Bereken max prijs voor balk-breedte
+    const maxP = Math.max(...d.prices.map(p => p.price));
+    const minP = Math.min(...d.prices.map(p => p.price));
+    const range = maxP - minP || 0.001;
+
+    // Toon alle uren op chronologische volgorde, goedkoopste gemarkeerd
+    const rows = d.prices.map(p => {
+      const tone    = priceTone(p.price, d.prices);
+      const barPct  = Math.round(((p.price - minP) / range) * 100);
+      const isBest  = p.isBest;
+      return `<div class="pp-row ${isBest ? 'pp-best' : ''}">
+        <div class="pp-time" style="color:${isBest ? 'var(--good)' : 'var(--text)'}">${pad(p.hour)}:00</div>
+        <div class="pp-bar-wrap">
+          <div class="pp-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
+        </div>
+        <div class="pp-price" style="color:${priceColor(tone)}">
+          €${p.price.toFixed(3)}
+        </div>
+      </div>`;
+    }).join('');
+
+    previewHTML = `
+      <div class="price-preview" id="preview-${d.key}">
+        <div class="pp-header">
+          <span>⚡ Uurprijzen (markt + toeslag)</span>
+          <button class="pp-open-btn" data-day="${d.key}" onclick="event.stopPropagation();openSheetByKey('${d.key}')">
+            Alles&nbsp;↗
+          </button>
+        </div>
+        ${rows}
+      </div>`;
+  } else if (!d.tappable) {
+    previewHTML = `<div style="margin-top:10px;font-size:12px;color:var(--muted2);padding:8px 0;">
+      Geen uurprijzen beschikbaar voor deze dag.
+    </div>`;
+  }
+
   return `
     <div class="row">
       <div class="left h">
         <span class="badge-dot" aria-hidden="true"></span>
         <div>
           <p class="card-title">${d.label} <span class="muted" style="font-weight:650;">• ${d.date}</span></p>
-          <p class="card-sub">${d.tappable ? 'Tik voor uurprijzen ↗' : 'Geen uurprijzen beschikbaar'}</p>
         </div>
       </div>
       <div class="right"><span class="chip ${d.advice.tone}">⚡ ${d.advice.text}</span></div>
@@ -603,6 +725,7 @@ function primaryCardHTML(d) {
         <div class="kpi-note">Meest gunstige periode</div>
       </div>
     </div>
+    ${previewHTML}
     <div class="footer">
       <span class="chip ${d.score}">${solarIcon(d.score)} Zon: ${solarLabel(d.score)}</span>
       ${minPriceLine}
@@ -627,26 +750,41 @@ function compactCardHTML(d) {
     </div>`;
 }
 
+// Global lookup so the inline "Alles ↗" button can find the day data
+let _allDays = [];
+let _sourceLabel = '';
+
 function renderCards(days, sourceLabel) {
+  _allDays    = days;
+  _sourceLabel = sourceLabel;
+
   const cardsEl = document.getElementById('cards');
   cardsEl.innerHTML = '';
 
   days.forEach(d => {
     const card = document.createElement('section');
-    card.className = `card ${d.isPrimary ? 'primary' : 'compact'} ${d.tappable ? 'tap' : ''}`;
+    // Primary cards zijn niet meer zelf klikbaar (alleen de knop erin)
+    card.className = `card ${d.isPrimary ? 'primary' : 'compact'} ${(!d.isPrimary && d.tappable) ? 'tap' : ''}`;
     card.style.setProperty('--bar', toneColor(d.score));
     card.style.setProperty('--dot', toneColor(d.score));
     card.innerHTML = d.isPrimary ? primaryCardHTML(d) : compactCardHTML(d);
-    if (d.tappable) card.addEventListener('click', () => openSheet(d, sourceLabel));
+    // Compacte kaarten (rest van de week) blijven klikbaar voor het sheet
+    if (!d.isPrimary && d.tappable) {
+      card.addEventListener('click', () => openSheet(d, sourceLabel));
+    }
     cardsEl.appendChild(card);
   });
 
-  // Bron-noot onderaan
   const note = document.createElement('p');
   note.className = 'source-note';
   note.innerHTML = `<span class="source-dot ${sourceLabel.includes('Elia') ? 'warn' : ''}"></span>
     Prijsbron: ${sourceLabel || '—'} · Solar: Open-Meteo`;
   cardsEl.appendChild(note);
+}
+
+function openSheetByKey(key) {
+  const day = _allDays.find(d => d.key === key);
+  if (day) openSheet(day, _sourceLabel);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -656,31 +794,36 @@ function renderCards(days, sourceLabel) {
 function openSheet(day, sourceLabel) {
   document.getElementById('sheetTitle').textContent = `${day.label} • ${day.date}`;
   document.getElementById('sheetSub').textContent   = `☀ ${day.solarKwh.toFixed(1)} kWh • ${day.advice.text}`;
-  document.getElementById('priceSource').textContent = `📡 Bron: ${sourceLabel}`;
+  document.getElementById('priceSource').textContent = `📡 ${sourceLabel}`;
 
-  const bestWindow = day.prices.filter(p => p.isBest);
-  const bestLabel  = bestWindow.length
-    ? `${pad(bestWindow[0].hour)}:00–${pad(bestWindow[bestWindow.length-1].hour+1)}:00`
-    : '—';
-  document.getElementById('bestPill').textContent = `🕒 Beste netmoment: ${bestLabel}`;
+  const bestHours = day.prices.filter(p => p.isBest);
+  const bestLabel = bestHours.length
+    ? `🕒 Beste: ${pad(bestHours[0].hour)}:00–${pad(bestHours[bestHours.length-1].hour+1)}:00  (€${bestHours[0].price.toFixed(3)}/kWh)`
+    : '🕒 —';
+  document.getElementById('bestPill').textContent = bestLabel;
 
-  const grid = document.getElementById('hourGrid');
-  grid.innerHTML = '';
+  const maxP = Math.max(...day.prices.map(p => p.price));
+  const minP = Math.min(...day.prices.map(p => p.price));
+  const range = maxP - minP || 0.001;
+
+  const list = document.getElementById('hourList');
+  list.innerHTML = '';
+
   day.prices.forEach(p => {
-    const btn = document.createElement('button');
-    btn.className = `hour ${priceTone(p.price, day.prices)} ${p.isBest ? 'best' : ''}`;
-    btn.type = 'button';
-    btn.innerHTML = `
-      <div class="t">${pad(p.hour)}:00</div>
-      <div class="p">€ ${p.price.toFixed(3)}</div>
-      <div class="hint">${p.isBest ? '⭐ Beste moment' : ' '}</div>`;
-    btn.addEventListener('click', ev => {
-      ev.stopPropagation();
-      document.querySelectorAll('.hour.best').forEach(x => x.classList.remove('best'));
-      btn.classList.add('best');
-      document.getElementById('bestPill').textContent = `🕒 Gekozen: ${pad(p.hour)}:00 (€${p.price.toFixed(3)}/kWh)`;
-    });
-    grid.appendChild(btn);
+    const tone   = priceTone(p.price, day.prices);
+    const barPct = Math.round(((p.price - minP) / range) * 100);
+    const row    = document.createElement('div');
+    row.className = `hl-row ${p.isBest ? 'hl-best' : ''}`;
+    row.innerHTML = `
+      <div class="hl-time">${pad(p.hour)}:00</div>
+      <div class="hl-bar-wrap">
+        <div class="hl-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
+      </div>
+      <div class="hl-price" style="color:${priceColor(tone)}">
+        €${p.price.toFixed(3)}
+        <span class="hl-unit">${p.marketEurMwh != null ? p.marketEurMwh.toFixed(1)+'€/MWh' : ''}</span>
+      </div>`;
+    list.appendChild(row);
   });
 
   document.getElementById('overlay').classList.add('show');
