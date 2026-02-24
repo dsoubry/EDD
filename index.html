@@ -662,22 +662,23 @@ function priceColor(tone) {
 }
 
 function primaryCardHTML(d) {
-  const minPriceLine = d.minPrice != null
-    ? `<span class="meta">min €${d.minPrice.toFixed(3)}/kWh</span>`
+  const minMwh = d.prices.length ? Math.min(...d.prices.map(p => p.marketEurMwh ?? p.price * 1000)) : null;
+  const minPriceLine = minMwh != null
+    ? `<span class="meta">min ${minMwh.toFixed(1)} €/MWh</span>`
     : `<span class="meta">${d.bestLabel}</span>`;
 
   // Inline prijspreview: toon alle uren, gesorteerd goedkoopst eerst, top 5 zichtbaar
   let previewHTML = '';
   if (d.tappable && d.prices.length) {
-    // Bereken max prijs voor balk-breedte
-    const maxP = Math.max(...d.prices.map(p => p.price));
-    const minP = Math.min(...d.prices.map(p => p.price));
+    // Bereken min/max op basis van ruwe marktprijs (€/MWh)
+    const maxP = Math.max(...d.prices.map(p => p.marketEurMwh ?? p.price * 1000));
+    const minP = Math.min(...d.prices.map(p => p.marketEurMwh ?? p.price * 1000));
     const range = maxP - minP || 0.001;
 
-    // Toon alle uren op chronologische volgorde, goedkoopste gemarkeerd
     const rows = d.prices.map(p => {
+      const mwh     = p.marketEurMwh ?? (p.price * 1000);
       const tone    = priceTone(p.price, d.prices);
-      const barPct  = Math.round(((p.price - minP) / range) * 100);
+      const barPct  = Math.round(((mwh - minP) / range) * 100);
       const isBest  = p.isBest;
       return `<div class="pp-row ${isBest ? 'pp-best' : ''}">
         <div class="pp-time" style="color:${isBest ? 'var(--good)' : 'var(--text)'}">${pad(p.hour)}:00</div>
@@ -685,7 +686,7 @@ function primaryCardHTML(d) {
           <div class="pp-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
         </div>
         <div class="pp-price" style="color:${priceColor(tone)}">
-          €${p.price.toFixed(3)}
+          ${mwh.toFixed(1)} <small style="font-size:9px;opacity:.7">€/MWh</small>
         </div>
       </div>`;
     }).join('');
@@ -693,7 +694,7 @@ function primaryCardHTML(d) {
     previewHTML = `
       <div class="price-preview">
         <div class="pp-header">
-          <span>⚡ Uurprijzen (markt + toeslag)</span>
+          <span>⚡ Day-ahead prijs (€/MWh)</span>
           <button class="pp-open-btn" onclick="event.stopPropagation();togglePrices(this)">
             Alles&nbsp;↓
           </button>
@@ -803,21 +804,23 @@ function openSheet(day, sourceLabel) {
   document.getElementById('priceSource').textContent = `📡 ${sourceLabel}`;
 
   const bestHours = day.prices.filter(p => p.isBest);
+  const bestMwh   = bestHours.length ? (bestHours[0].marketEurMwh ?? bestHours[0].price * 1000) : null;
   const bestLabel = bestHours.length
-    ? `🕒 Beste: ${pad(bestHours[0].hour)}:00–${pad(bestHours[bestHours.length-1].hour+1)}:00  (€${bestHours[0].price.toFixed(3)}/kWh)`
+    ? `🕒 Beste: ${pad(bestHours[0].hour)}:00–${pad(bestHours[bestHours.length-1].hour+1)}:00  (${bestMwh.toFixed(1)} €/MWh)`
     : '🕒 —';
   document.getElementById('bestPill').textContent = bestLabel;
 
-  const maxP = Math.max(...day.prices.map(p => p.price));
-  const minP = Math.min(...day.prices.map(p => p.price));
+  const maxP = Math.max(...day.prices.map(p => p.marketEurMwh ?? p.price * 1000));
+  const minP = Math.min(...day.prices.map(p => p.marketEurMwh ?? p.price * 1000));
   const range = maxP - minP || 0.001;
 
   const list = document.getElementById('hourList');
   list.innerHTML = '';
 
   day.prices.forEach(p => {
+    const mwh    = p.marketEurMwh ?? (p.price * 1000);
     const tone   = priceTone(p.price, day.prices);
-    const barPct = Math.round(((p.price - minP) / range) * 100);
+    const barPct = Math.round(((mwh - minP) / range) * 100);
     const row    = document.createElement('div');
     row.className = `hl-row ${p.isBest ? 'hl-best' : ''}`;
     row.innerHTML = `
@@ -826,8 +829,8 @@ function openSheet(day, sourceLabel) {
         <div class="hl-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
       </div>
       <div class="hl-price" style="color:${priceColor(tone)}">
-        €${p.price.toFixed(3)}
-        <span class="hl-unit">${p.marketEurMwh != null ? p.marketEurMwh.toFixed(1)+'€/MWh' : ''}</span>
+        ${mwh.toFixed(1)}
+        <span class="hl-unit">€/MWh</span>
       </div>`;
     list.appendChild(row);
   });
