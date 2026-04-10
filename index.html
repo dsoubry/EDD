@@ -424,10 +424,15 @@ async function fetchMachineryPrices() {
         if (!uurMatch) return;
         const hour = +uurMatch[1];
 
-        // td[1]: "5.31 €" of "112.74 €"  (€/MWh)
-        const priceMatch = cells[1].textContent.match(/([\d]+[.,][\d]+)/);
+        // td[1]: "-5.31 €", "−5,31 €" of "112.74 €"  (€/MWh)
+        const rawPriceText = cells[1].textContent.trim();
+        const priceMatch = rawPriceText.match(/([\-−]?\d+(?:[.,]\d+)?)/);
         if (!priceMatch) return;
-        const marketEurMwh = parseFloat(priceMatch[1].replace(',', '.'));
+        const marketEurMwh = parseFloat(
+          priceMatch[1]
+            .replace('−', '-')
+            .replace(',', '.')
+        );
 
         prices.push({
           date,
@@ -572,6 +577,13 @@ function annotateBestWindow(prices, date, windowH = 3) {
 
 function pad(n) { return String(n).padStart(2, '0'); }
 
+function formatMwh(value) {
+  return Number(value).toLocaleString('nl-BE', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
 function bestSolarWindow(solarDay) {
   // Uren met >70% van de piekproductie
   const maxRad = Math.max(...solarDay.hours.map(h => h.rad));
@@ -664,7 +676,7 @@ function priceColor(tone) {
 function primaryCardHTML(d) {
   const minMwh = d.prices.length ? Math.min(...d.prices.map(p => p.marketEurMwh ?? p.price * 1000)) : null;
   const minPriceLine = minMwh != null
-    ? `<span class="meta">min ${minMwh.toFixed(1)} €/MWh</span>`
+    ? `<span class="meta">min ${formatMwh(minMwh)} €/MWh</span>`
     : `<span class="meta">${d.bestLabel}</span>`;
 
   // Inline prijspreview: toon alle uren, gesorteerd goedkoopst eerst, top 5 zichtbaar
@@ -686,7 +698,7 @@ function primaryCardHTML(d) {
           <div class="pp-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
         </div>
         <div class="pp-price" style="color:${priceColor(tone)}">
-          ${mwh.toFixed(1)} <small style="font-size:9px;opacity:.7">€/MWh</small>
+          ${formatMwh(mwh)} <small style="font-size:9px;opacity:.7">€/MWh</small>
         </div>
       </div>`;
     }).join('');
@@ -806,7 +818,7 @@ function openSheet(day, sourceLabel) {
   const bestHours = day.prices.filter(p => p.isBest);
   const bestMwh   = bestHours.length ? (bestHours[0].marketEurMwh ?? bestHours[0].price * 1000) : null;
   const bestLabel = bestHours.length
-    ? `🕒 Beste: ${pad(bestHours[0].hour)}:00–${pad(bestHours[bestHours.length-1].hour+1)}:00  (${bestMwh.toFixed(1)} €/MWh)`
+    ? `🕒 Beste: ${pad(bestHours[0].hour)}:00–${pad(bestHours[bestHours.length-1].hour+1)}:00  (${formatMwh(bestMwh)} €/MWh)`
     : '🕒 —';
   document.getElementById('bestPill').textContent = bestLabel;
 
@@ -829,7 +841,7 @@ function openSheet(day, sourceLabel) {
         <div class="hl-bar" style="width:${barPct}%;background:${priceColor(tone)}"></div>
       </div>
       <div class="hl-price" style="color:${priceColor(tone)}">
-        ${mwh.toFixed(1)}
+        ${formatMwh(mwh)}
         <span class="hl-unit">€/MWh</span>
       </div>`;
     list.appendChild(row);
